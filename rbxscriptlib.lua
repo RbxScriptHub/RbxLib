@@ -68,7 +68,7 @@ function rbxscriptLib:CreateWindow(config)
     TitleText.Text = windowTitle
     TitleText.TextColor3 = TEXT_COLOR
     TitleText.TextSize = 18
-    TitleText.Font = Enum.Font.SourceSansPro
+    TitleText.Font = Enum.Font.Gotham -- Changed from SourceSansPro to Gotham
     TitleText.TextXAlignment = Enum.TextXAlignment.Left
     TitleText.Parent = TitleBar
 
@@ -80,7 +80,7 @@ function rbxscriptLib:CreateWindow(config)
     CloseButton.Text = "X"
     CloseButton.TextColor3 = TEXT_COLOR
     CloseButton.TextSize = 16
-    CloseButton.Font = Enum.Font.SourceSansPro
+    CloseButton.Font = Enum.Font.Gotham -- Changed from SourceSansPro to Gotham
     CloseButton.Parent = TitleBar
 
     local CloseCorner = Instance.new("UICorner")
@@ -131,7 +131,7 @@ function rbxscriptLib:CreateWindow(config)
         TabButton.Text = tabName
         TabButton.TextColor3 = TEXT_COLOR
         TabButton.TextSize = 16
-        TabButton.Font = Enum.Font.SourceSansPro
+        TabButton.Font = Enum.Font.Gotham -- Changed from SourceSansPro to Gotham
         TabButton.BorderSizePixel = 0
         TabButton.Parent = TabContainer
 
@@ -176,7 +176,7 @@ function rbxscriptLib:CreateWindow(config)
             Button.Text = buttonText
             Button.TextColor3 = TEXT_COLOR
             Button.TextSize = 16
-            Button.Font = Enum.Font.SourceSansPro
+            Button.Font = Enum.Font.Gotham -- Changed from SourceSansPro to Gotham
             Button.Parent = TabContent
 
             local ButtonCorner = Instance.new("UICorner")
@@ -218,7 +218,7 @@ function rbxscriptLib:CreateWindow(config)
             ToggleLabel.Text = toggleName
             ToggleLabel.TextColor3 = TEXT_COLOR
             ToggleLabel.TextSize = 16
-            ToggleLabel.Font = Enum.Font.SourceSansPro
+            ToggleLabel.Font = Enum.Font.Gotham -- Changed from SourceSansPro to Gotham
             ToggleLabel.TextXAlignment = Enum.TextXAlignment.Left
             ToggleLabel.Parent = ToggleFrame
 
@@ -264,7 +264,7 @@ function rbxscriptLib:CreateWindow(config)
             SliderLabel.Text = sliderName .. ": " .. default
             SliderLabel.TextColor3 = TEXT_COLOR
             SliderLabel.TextSize = 16
-            SliderLabel.Font = Enum.Font.SourceSansPro
+            SliderLabel.Font = Enum.Font.Gotham -- Changed from SourceSansPro to Gotham
             SliderLabel.TextXAlignment = Enum.TextXAlignment.Left
             SliderLabel.Parent = SliderFrame
 
@@ -349,7 +349,7 @@ function rbxscriptLib:CreateWindow(config)
             DropdownButton.Text = dropdownName .. ": " .. default
             DropdownButton.TextColor3 = TEXT_COLOR
             DropdownButton.TextSize = 16
-            DropdownButton.Font = Enum.Font.SourceSansPro
+            DropdownButton.Font = Enum.Font.Gotham -- Changed from SourceSansPro to Gotham
             DropdownButton.Parent = DropdownFrame
 
             local DropdownCorner = Instance.new("UICorner")
@@ -379,7 +379,7 @@ function rbxscriptLib:CreateWindow(config)
                 OptionButton.Text = option
                 OptionButton.TextColor3 = TEXT_COLOR
                 OptionButton.TextSize = 16
-                OptionButton.Font = Enum.Font.SourceSansPro
+                OptionButton.Font = Enum.Font.Gotham -- Changed from SourceSansPro to Gotham
                 OptionButton.Parent = DropdownList
 
                 OptionButton.MouseButton1Click:Connect(function()
@@ -413,7 +413,7 @@ function rbxscriptLib:CreateWindow(config)
             KeybindLabel.Text = keybindName .. ": " .. tostring(defaultKey)
             KeybindLabel.TextColor3 = TEXT_COLOR
             KeybindLabel.TextSize = 16
-            KeybindLabel.Font = Enum.Font.SourceSansPro
+            KeybindLabel.Font = Enum.Font.Gotham -- Changed from SourceSansPro to Gotham
             KeybindLabel.TextXAlignment = Enum.TextXAlignment.Left
             KeybindLabel.Parent = KeybindFrame
 
@@ -424,7 +424,7 @@ function rbxscriptLib:CreateWindow(config)
             KeybindButton.Text = "..."
             KeybindButton.TextColor3 = TEXT_COLOR
             KeybindButton.TextSize = 16
-            KeybindButton.Font = Enum.Font.SourceSansPro
+            KeybindButton.Font = Enum.Font.Gotham -- Changed from SourceSansPro to Gotham
             KeybindButton.Parent = KeybindFrame
 
             local KeybindCorner = Instance.new("UICorner")
@@ -472,7 +472,7 @@ function rbxscriptLib:CreateWindow(config)
         KeyLabel.Text = "Enter Key"
         KeyLabel.TextColor3 = TEXT_COLOR
         KeyLabel.TextSize = 18
-        KeyLabel.Font = Enum.Font.SourceSansPro
+        KeyLabel.Font = Enum.Font.Gotham -- Changed from SourceSansPro to Gotham
         KeyLabel.Parent = KeyFrame
 
         local KeyTextBox = Instance.new("TextBox")
@@ -482,7 +482,7 @@ function rbxscriptLib:CreateWindow(config)
         KeyTextBox.Text = ""
         KeyTextBox.TextColor3 = TEXT_COLOR
         KeyTextBox.TextSize = 16
-        KeyTextBox.Font = Enum.Font.SourceSansPro
+        KeyTextBox.Font = Enum.Font.Gotham -- Changed from SourceSansPro to Gotham
         KeyTextBox.Parent = KeyFrame
 
         local KeyTextBoxCorner = Instance.new("UICorner")
@@ -496,7 +496,7 @@ function rbxscriptLib:CreateWindow(config)
         SubmitButton.Text = "Submit"
         SubmitButton.TextColor3 = TEXT_COLOR
         SubmitButton.TextSize = 16
-        SubmitButton.Font = Enum.Font.SourceSansPro
+        SubmitButton.Font = Enum.Font.Gotham -- Changed from SourceSansPro to Gotham
         SubmitButton.Parent = KeyFrame
 
         local SubmitCorner = Instance.new("UICorner")

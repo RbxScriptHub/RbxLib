@@ -1,586 +1,1037 @@
 -- rbxscriptlib: A futuristic, developer-friendly Roblox UI library
--- Inspired by OrionLib with a modern left-side navigation layout
+-- Inspired by OrionLib, with a modern left-side navigation layout
+-- Features a sci-fi aesthetic with smooth animations, glowing highlights, and rounded corners
 
 local rbxscriptlib = {}
+local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
 local HttpService = game:GetService("HttpService")
 
--- Core UI setup
-local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "rbxscriptlib"
-ScreenGui.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
-ScreenGui.ResetOnSpawn = false
-
--- Theme configuration
-local Themes = {
-    Dark = {
-        Background = Color3.fromRGB(20, 20, 30),
-        Accent = Color3.fromRGB(0, 120, 255),
-        Text = Color3.fromRGB(220, 220, 220),
-        Glow = Color3.fromRGB(50, 150, 255),
-    },
-    Light = {
-        Background = Color3.fromRGB(240, 240, 240),
-        Accent = Color3.fromRGB(0, 100, 200),
-        Text = Color3.fromRGB(30, 30, 30),
-        Glow = Color3.fromRGB(100, 180, 255),
-    },
-    Futuristic = {
-        Background = Color3.fromRGB(10, 10, 20),
-        Accent = Color3.fromRGB(0, 255, 200),
-        Text = Color3.fromRGB(200, 255, 255),
-        Glow = Color3.fromRGB(50, 255, 220),
-    }
+-- Library state
+local library = {
+	Windows = {},
+	ActiveWindow = nil,
+	Theme = {
+		PrimaryColor = Color3.fromRGB(10, 25, 47), -- Dark blue for sci-fi aesthetic
+		AccentColor = Color3.fromRGB(0, 255, 255), -- Cyan for glowing highlights
+		BackgroundColor = Color3.fromRGB(20, 20, 30),
+		TextColor = Color3.fromRGB(255, 255, 255),
+		Font = Enum.Font.SourceSansPro,
+		FontSize = 16,
+	},
+	Animations = {
+		OpenTween = TweenInfo.new(0.3, Enum.EasingStyle.Sine, Enum.EasingDirection.Out),
+		HoverTween = TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut),
+	},
+	Registry = {}, -- Tracks all UI elements for debugging
+	IsLocked = false,
+	KeySystemEnabled = false,
+	Key = nil,
 }
 
-local CurrentTheme = Themes.Futuristic
-local Font = Enum.Font.Code
-local FontSize = Enum.FontSize.Size18
+-- Utility functions
+local function createInstance(className, properties)
+	local instance = Instance.new(className)
+	for prop, value in pairs(properties or {}) do
+		instance[prop] = value
+	end
+	return instance
+end
 
--- Internal state
-local Windows = {}
-local ActiveWindow = nil
-local UIState = {}
-local Registry = {}
-local DebugConsole = { logs = {} }
+local function applyGlow(element, color)
+	local glow = createInstance("UIGradient", {
+		Color = ColorSequence.new({
+			ColorSequenceKeypoint.new(0, color),
+			ColorSequenceKeypoint.new(1, Color3.new(0, 0, 0)),
+		}),
+		Rotation = 45,
+		Parent = element,
+	})
+end
 
--- Animation helper
-local function createTween(instance, properties, duration, easingStyle)
-    local tweenInfo = TweenInfo.new(duration, easingStyle or Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-    local tween = TweenService:Create(instance, tweenInfo, properties)
-    tween:Play()
-    return tween
+-- Window creation
+function rbxscriptlib:CreateWindow(name)
+	local window = {
+		Name = name,
+		Tabs = {},
+		ScreenGui = createInstance("ScreenGui", {
+			Name = name .. "_ScreenGui",
+			Parent = Players.LocalPlayer.PlayerGui,
+			ResetOnSpawn = false,
+		}),
+		MainFrame = nil,
+		NavFrame = nil,
+		ContentFrame = nil,
+		Notifications = {},
+	}
+
+	-- Main frame with futuristic styling
+	window.MainFrame = createInstance("Frame", {
+		Name = "MainFrame",
+		Size = UDim2.new(0, 600, 0, 400),
+		Position = UDim2.new(0.5, -300, 0.5, -200),
+		BackgroundColor3 = library.Theme.BackgroundColor,
+		BorderSizePixel = 0,
+		Parent = window.ScreenGui,
+	})
+	window.MainFrame.ClipsDescendants = true
+	createInstance("UICorner", { CornerRadius = UDim.new(0, 8), Parent = window.MainFrame })
+	applyGlow(window.MainFrame, library.Theme.AccentColor)
+
+	-- Navigation panel (left side)
+	window.NavFrame = createInstance("Frame", {
+		Name = "NavFrame",
+		Size = UDim2.new(0, 150, 1, 0),
+		BackgroundColor3 = library.Theme.PrimaryColor,
+		BorderSizePixel = 0,
+		Parent = window.MainFrame,
+	})
+	createInstance("UICorner", { CornerRadius = UDim.new(0, 8), Parent = window.NavFrame })
+	createInstance("UIListLayout", {
+		SortOrder = Enum.SortOrder.LayoutOrder,
+		Padding = UDim.new(0, 5),
+		Parent = window.NavFrame,
+	})
+
+	-- Content frame (right side)
+	window.ContentFrame = createInstance("Frame", {
+		Name = "ContentFrame",
+		Size = UDim2.new(1, -150, 1, 0),
+		Position = UDim2.new(0, 150, 0, 0),
+		BackgroundTransparency = 1,
+		Parent = window.MainFrame,
+	})
+	createInstance("UIListLayout", {
+		SortOrder = Enum.SortOrder.LayoutOrder,
+		Padding = UDim.new(0, 10),
+		Parent = window.ContentFrame,
+	})
+
+	-- Store window
+	library.Windows[name] = window
+	library.ActiveWindow = window
+	library.Registry[name] = { Type = "Window", Instance = window.MainFrame }
+
+	return window
+end
+
+-- Tab creation
+function rbxscriptlib:CreateTab(window, name)
+	local tab = {
+		Name = name,
+		Sections = {},
+		NavButton = nil,
+		ContentFrame = nil,
+	}
+
+	-- Navigation button
+	tab.NavButton = createInstance("TextButton", {
+		Name = name .. "_Button",
+		Size = UDim2.new(1, -10, 0, 40),
+		Position = UDim2.new(0, 5, 0, 0),
+		BackgroundColor3 = library.Theme.PrimaryColor,
+		Text = name,
+		TextColor3 = library.Theme.TextColor,
+		Font = library.Theme.Font,
+		TextSize = library.Theme.FontSize,
+		Parent = window.NavFrame,
+	})
+	createInstance("UICorner", { CornerRadius = UDim.new(0, 6), Parent = tab.NavButton })
+	applyGlow(tab.NavButton, library.Theme.AccentColor)
+
+	-- Content frame for tab
+	tab.ContentFrame = createInstance("Frame", {
+		Name = name .. "_Content",
+		Size = UDim2.new(1, -10, 1, -10),
+		Position = UDim2.new(0, 5, 0, 5),
+		BackgroundTransparency = 1,
+		Parent = window.ContentFrame,
+		Visible = false,
+	})
+	createInstance("UIListLayout", {
+		SortOrder = Enum.SortOrder.LayoutOrder,
+		Padding = UDim.new(0, 10),
+		Parent = tab.ContentFrame,
+	})
+
+	-- Tab switching
+	tab.NavButton.MouseButton1Click:Connect(function()
+		for _, t in pairs(window.Tabs) do
+			t.ContentFrame.Visible = false
+			t.NavButton.BackgroundColor3 = library.Theme.PrimaryColor
+		end
+		tab.ContentFrame.Visible = true
+		TweenService:Create(
+			tab.NavButton,
+			library.Animations.OpenTween,
+			{ BackgroundColor3 = library.Theme.AccentColor }
+		):Play()
+	end)
+
+	-- Store tab
+	window.Tabs[name] = tab
+	library.Registry[name .. "_Tab"] = { Type = "Tab", Instance = tab.ContentFrame }
+
+	return tab
+end
+
+-- Section creation
+function rbxscriptlib:CreateSection(tab, name)
+	local section = {
+		Name = name,
+		Frame = createInstance("Frame", {
+			Name = name .. "_Section",
+			Size = UDim2.new(1, -10, 0, 0),
+			AutomaticSize = Enum.AutomaticSize.Y,
+			BackgroundColor3 = library.Theme.BackgroundColor,
+			BorderSizePixel = 0,
+			Parent = tab.ContentFrame,
+		}),
+		Elements = {},
+	}
+	createInstance("UICorner", { CornerRadius = UDim.new(0, 6), Parent = section.Frame })
+	createInstance("UIListLayout", {
+		SortOrder = Enum.SortOrder.LayoutOrder,
+		Padding = UDim.new(0, 8),
+		Parent = section.Frame,
+	})
+	createInstance("UIPadding", {
+		PaddingTop = UDim.new(0, 8),
+		PaddingBottom = UDim.new(0, 8),
+		PaddingLeft = UDim.new(0, 8),
+		PaddingRight = UDim.new(0, 8),
+		Parent = section.Frame,
+	})
+
+	-- Section title
+	local title = createInstance("TextLabel", {
+		Name = name .. "_Title",
+		Size = UDim2.new(1, 0, 0, 20),
+		BackgroundTransparency = 1,
+		Text = name,
+		TextColor3 = library.Theme.TextColor,
+		Font = library.Theme.Font,
+		TextSize = library.Theme.FontSize + 2,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Parent = section.Frame,
+	})
+
+	tab.Sections[name] = section
+	library.Registry[name .. "_Section"] = { Type = "Section", Instance = section.Frame }
+
+	return section
 end
 
 -- Notification system
-local function showNotification(message, duration)
-    local notification = Instance.new("Frame")
-    notification.Size = UDim2.new(0, 200, 0, 50)
-    notification.Position = UDim2.new(1, -210, 0, 10)
-    notification.BackgroundColor3 = CurrentTheme.Background
-    notification.BorderColor3 = CurrentTheme.Glow
-    notification.Parent = ScreenGui
+function rbxscriptlib:ShowNotification(window, title, message, duration)
+	local notification = createInstance("Frame", {
+		Name = "Notification_" .. title,
+		Size = UDim2.new(0, 200, 0, 80),
+		Position = UDim2.new(1, -210, 1, -90),
+		BackgroundColor3 = library.Theme.BackgroundColor,
+		Parent = window.ScreenGui,
+	})
+	createInstance("UICorner", { CornerRadius = UDim.new(0, 6), Parent = notification })
+	applyGlow(notification, library.Theme.AccentColor)
 
-    local text = Instance.new("TextLabel")
-    text.Size = UDim2.new(1, 0, 1, 0)
-    text.Text = message
-    text.TextColor3 = CurrentTheme.Text
-    text.Font = Font
-    text.TextSize = 16
-    text.BackgroundTransparency = 1
-    text.Parent = notification
+	local titleLabel = createInstance("TextLabel", {
+		Size = UDim2.new(1, -10, 0, 20),
+		Position = UDim2.new(0, 5, 0, 5),
+		BackgroundTransparency = 1,
+		Text = title,
+		TextColor3 = library.Theme.TextColor,
+		Font = library.Theme.Font,
+		TextSize = library.Theme.FontSize,
+		Parent = notification,
+	})
 
-    createTween(notification, { Position = UDim2.new(1, -210, 0, 60) }, 0.3)
-    wait(duration or 3)
-    createTween(notification, { Position = UDim2.new(1, 0, 0, 60) }, 0.3)
-    wait(0.3)
-    notification:Destroy()
+	local messageLabel = createInstance("TextLabel", {
+		Size = UDim2.new(1, -10, 0, 50),
+		Position = UDim2.new(0, 5, 0, 25),
+		BackgroundTransparency = 1,
+		Text = message,
+		TextColor3 = library.Theme.TextColor,
+		Font = library.Theme.Font,
+		TextSize = library.Theme.FontSize - 2,
+		TextWrapped = true,
+		Parent = notification,
+	})
+
+	TweenService:Create(notification, library.Animations.OpenTween, { Position = UDim2.new(1, -210, 1, -90) }):Play()
+	task.delay(duration or 3, function()
+		TweenService:Create(notification, library.Animations.OpenTween, { Position = UDim2.new(1, 0, 1, -90) }):Play()
+		task.delay(0.3, function()
+			notification:Destroy()
+		end)
+	end)
+
+	library.Registry[title .. "_Notification"] = { Type = "Notification", Instance = notification }
 end
 
--- Main library functions
-function rbxscriptlib:CreateWindow(title)
-    local windowId = HttpService:GenerateGUID(false)
-    local window = Instance.new("Frame")
-    window.Size = UDim2.new(0, 600, 0, 400)
-    window.Position = UDim2.new(0.5, -300, 0.5, -200)
-    window.BackgroundColor3 = CurrentTheme.Background
-    window.BorderColor3 = CurrentTheme.Glow
-    window.Parent = ScreenGui
-    window.ClipsDescendants = true
-
-    local navPanel = Instance.new("Frame")
-    navPanel.Size = UDim2.new(0, 150, 1, 0)
-    navPanel.BackgroundColor3 = CurrentTheme.Background:lerp(CurrentTheme.Glow, 0.1)
-    navPanel.Parent = window
-
-    local contentArea = Instance.new("Frame")
-    contentArea.Size = UDim2.new(1, -150, 1, 0)
-    contentArea.Position = UDim2.new(0, 150, 0, 0)
-    contentArea.BackgroundTransparency = 1
-    contentArea.Parent = window
-
-    local titleLabel = Instance.new("TextLabel")
-    titleLabel.Size = UDim2.new(1, 0, 0, 30)
-    titleLabel.Text = title
-    titleLabel.TextColor3 = CurrentTheme.Text
-    titleLabel.Font = Font
-    titleLabel.TextSize = 20
-    titleLabel.BackgroundColor3 = CurrentTheme.Accent
-    titleLabel.Parent = window
-
-    local windowData = {
-        Id = windowId,
-        Frame = window,
-        NavPanel = navPanel,
-        ContentArea = contentArea,
-        Tabs = {},
-        ActiveTab = nil
-    }
-
-    Windows[windowId] = windowData
-    Registry[windowId] = windowData
-    ActiveWindow = windowData
-
-    return windowData
-end
-
-function rbxscriptlib:CreateTab(window, name)
-    local tabId = HttpService:GenerateGUID(false)
-    local tabButton = Instance.new("TextButton")
-    tabButton.Size = UDim2.new(1, 0, 0, 40)
-    tabButton.Position = UDim2.new(0, 0, 0, #window.Tabs * 40 + 40)
-    tabButton.Text = name
-    tabButton.TextColor3 = CurrentTheme.Text
-    tabButton.Font = Font
-    tabButton.TextSize = 16
-    tabButton.BackgroundColor3 = CurrentTheme.Background
-    tabButton.Parent = window.NavPanel
-
-    local contentFrame = Instance.new("Frame")
-    contentFrame.Size = UDim2.new(1, 0, 1, 0)
-    contentFrame.BackgroundTransparency = 1
-    contentFrame.Parent = window.ContentArea
-    contentFrame.Visible = false
-
-    local tabData = {
-        Id = tabId,
-        Button = tabButton,
-        Content = contentFrame,
-        Sections = {}
-    }
-
-    table.insert(window.Tabs, tabData)
-    Registry[tabId] = tabData
-
-    tabButton.MouseButton1Click:Connect(function()
-        if window.ActiveTab then
-            window.ActiveTab.Content.Visible = false
-            createTween(window.ActiveTab.Button, { BackgroundColor3 = CurrentTheme.Background }, 0.2)
-        end
-        tabData.Content.Visible = true
-        createTween(tabButton, { BackgroundColor3 = CurrentTheme.Accent }, 0.2)
-        window.ActiveTab = tabData
-    end)
-
-    if not window.ActiveTab then
-        tabData.Content.Visible = true
-        tabButton.BackgroundColor3 = CurrentTheme.Accent
-        window.ActiveTab = tabData
-    end
-
-    return tabData
-end
-
-function rbxscriptlib:CreateSection(tab, name)
-    local sectionId = HttpService:GenerateGUID(false)
-    local section = Instance.new("Frame")
-    section.Size = UDim2.new(1, -10, 0, 100)
-    section.Position = UDim2.new(0, 5, 0, #tab.Sections * 110 + 10)
-    section.BackgroundColor3 = CurrentTheme.Background:lerp(CurrentTheme.Glow, 0.05)
-    section.BorderColor3 = CurrentTheme.Glow
-    section.Parent = tab.Content
-
-    local sectionLabel = Instance.new("TextLabel")
-    sectionLabel.Size = UDim2.new(1, 0, 0, 20)
-    sectionLabel.Text = name
-    sectionLabel.TextColor3 = CurrentTheme.Text
-    sectionLabel.Font = Font
-    sectionLabel.TextSize = 16
-    sectionLabel.BackgroundTransparency = 1
-    sectionLabel.Parent = section
-
-    local sectionData = {
-        Id = sectionId,
-        Frame = section,
-        Elements = {}
-    }
-
-    table.insert(tab.Sections, sectionData)
-    Registry[sectionId] = sectionData
-    return sectionData
-end
-
+-- Button creation
 function rbxscriptlib:CreateButton(section, name, callback)
-    local buttonId = HttpService:GenerateGUID(false)
-    local button = Instance.new("TextButton")
-    button.Size = UDim2.new(1, -10, 0, 30)
-    button.Position = UDim2.new(0, 5, 0, #section.Elements * 40 + 30)
-    button.Text = name
-    button.TextColor3 = CurrentTheme.Text
-    button.Font = Font
-    button.TextSize = 14
-    button.BackgroundColor3 = CurrentTheme.Accent
-    button.Parent = section.Frame
+	local button = createInstance("TextButton", {
+		Name = name .. "_Button",
+		Size = UDim2.new(1, 0, 0, 30),
+		BackgroundColor3 = library.Theme.PrimaryColor,
+		Text = name,
+		TextColor3 = library.Theme.TextColor,
+		Font = library.Theme.Font,
+		TextSize = library.Theme.FontSize,
+		Parent = section.Frame,
+	})
+	createInstance("UICorner", { CornerRadius = UDim.new(0, 6), Parent = button })
+	applyGlow(button, library.Theme.AccentColor)
 
-    button.MouseButton1Click:Connect(function()
-        createTween(button, { BackgroundColor3 = CurrentTheme.Glow }, 0.1)
-        wait(0.1)
-        createTween(button, { BackgroundColor3 = CurrentTheme.Accent }, 0.1)
-        if callback then callback() end
-    end)
+	button.MouseButton1Click:Connect(function()
+		if not library.IsLocked then
+			callback()
+		end
+	end)
+	button.MouseEnter:Connect(function()
+		TweenService:Create(button, library.Animations.HoverTween, { BackgroundColor3 = library.Theme.AccentColor }):Play()
+	end)
+	button.MouseLeave:Connect(function()
+		TweenService:Create(button, library.Animations.HoverTween, { BackgroundColor3 = library.Theme.PrimaryColor }):Play()
+	end)
 
-    table.insert(section.Elements, button)
-    Registry[buttonId] = button
-    return button
+	section.Elements[name] = { Type = "Button", Instance = button }
+	library.Registry[name .. "_Button"] = { Type = "Button", Instance = button }
+
+	return button
 end
 
+-- Checkbox toggle creation
 function rbxscriptlib:CreateToggle(section, name, default, callback)
-    local toggleId = HttpService:GenerateGUID(false)
-    local toggle = Instance.new("TextButton")
-    toggle.Size = UDim2.new(1, -10, 0, 30)
-    toggle.Position = UDim2.new(0, 5, 0, #section.Elements * 40 + 30)
-    toggle.Text = name .. (default and " (On)" or " (Off)")
-    toggle.TextColor3 = CurrentTheme.Text
-    toggle.Font = Font
-    toggle.TextSize = 14
-    toggle.BackgroundColor3 = default and CurrentTheme.Accent or CurrentTheme.Background
-    toggle.Parent = section.Frame
+	local toggle = {
+		Frame = createInstance("Frame", {
+			Name = name .. "_Toggle",
+			Size = UDim2.new(1, 0, 0, 30),
+			BackgroundTransparency = 1,
+			Parent = section.Frame,
+		}),
+		Value = default or false,
+	}
 
-    local value = default
-    toggle.MouseButton1Click:Connect(function()
-        value = not value
-        toggle.Text = name .. (value and " (On)" or " (Off)")
-        toggle.BackgroundColor3 = value and CurrentTheme.Accent or CurrentTheme.Background
-        if callback then callback(value) end
-        UIState[toggleId] = value
-    end)
+	local label = createInstance("TextLabel", {
+		Size = UDim2.new(1, -40, 1, 0),
+		BackgroundTransparency = 1,
+		Text = name,
+		TextColor3 = library.Theme.TextColor,
+		Font = library.Theme.Font,
+		TextSize = library.Theme.FontSize,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Parent = toggle.Frame,
+	})
 
-    UIState[toggleId] = value
-    table.insert(section.Elements, toggle)
-    Registry[toggleId] = toggle
-    return toggle
+	local toggleButton = createInstance("TextButton", {
+		Size = UDim2.new(0, 30, 0, 20),
+		Position = UDim2.new(1, -30, 0.5, -10),
+		BackgroundColor3 = default and library.Theme.AccentColor or library.Theme.PrimaryColor,
+		Text = "",
+		Parent = toggle.Frame,
+	})
+	createInstance("UICorner", { CornerRadius = UDim.new(0, 6), Parent = toggleButton })
+
+	toggleButton.MouseButton1Click:Connect(function()
+		if not library.IsLocked then
+			toggle.Value = not toggle.Value
+			TweenService:Create(
+				toggleButton,
+				library.Animations.HoverTween,
+				{ BackgroundColor3 = toggle.Value and library.Theme.AccentColor or library.Theme.PrimaryColor }
+			):Play()
+			callback(toggle.Value)
+		end
+	end)
+
+	section.Elements[name] = { Type = "Toggle", Instance = toggle.Frame, Value = toggle.Value }
+	library.Registry[name .. "_Toggle"] = { Type = "Toggle", Instance = toggle.Frame }
+
+	return toggle
 end
 
-function rbxscriptlib:ChangeToggleValue(toggle, value)
-    toggle.Text = toggle.Text:match("^(.-)%s%(%a+%)") .. (value and " (On)" or " (Off)")
-    toggle.BackgroundColor3 = value and CurrentTheme.Accent or CurrentTheme.Background
-    UIState[toggle.Name] = value
+-- Change toggle value
+function rbxscriptlib:ChangeToggle(section, name, value)
+	local toggle = section.Elements[name]
+	if toggle and toggle.Type == "Toggle" then
+		toggle.Value = value
+		local toggleButton = toggle.Frame:FindFirstChildOfClass("TextButton")
+		TweenService:Create(
+			toggleButton,
+			library.Animations.HoverTween,
+			{ BackgroundColor3 = value and library.Theme.AccentColor or library.Theme.PrimaryColor }
+		):Play()
+	end
 end
 
+-- Color picker creation
 function rbxscriptlib:CreateColorPicker(section, name, default, callback)
-    local pickerId = HttpService:GenerateGUID(false)
-    local picker = Instance.new("Frame")
-    picker.Size = UDim2.new(1, -10, 0, 30)
-    picker.Position = UDim2.new(0, 5, 0, #section.Elements * 40 + 30)
-    picker.BackgroundColor3 = default or Color3.fromRGB(255, 255, 255)
-    picker.Parent = section.Frame
+	local colorPicker = {
+		Frame = createInstance("Frame", {
+			Name = name .. "_ColorPicker",
+			Size = UDim2.new(1, 0, 0, 30),
+			BackgroundTransparency = 1,
+			Parent = section.Frame,
+		}),
+		Value = default or Color3.new(1, 1, 1),
+	}
 
-    local pickerLabel = Instance.new("TextLabel")
-    pickerLabel.Size = UDim2.new(1, 0, 1, 0)
-    pickerLabel.Text = name
-    pickerLabel.TextColor3 = CurrentTheme.Text
-    pickerLabel.Font = Font
-    pickerLabel.TextSize = 14
-    pickerLabel.BackgroundTransparency = 1
-    pickerLabel.Parent = picker
+	local label = createInstance("TextLabel", {
+		Size = UDim2.new(1, -40, 1, 0),
+		BackgroundTransparency = 1,
+		Text = name,
+		TextColor3 = library.Theme.TextColor,
+		Font = library.Theme.Font,
+		TextSize = library.Theme.FontSize,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Parent = colorPicker.Frame,
+	})
 
-    -- Simplified color picker (Roblox doesn't support native color picking)
-    picker.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            -- Placeholder for color picker UI (would require a custom UI)
-            showNotification("Color picker opened (simulated)", 2)
-            if callback then callback(picker.BackgroundColor3) end
-        end
-    end)
+	local colorButton = createInstance("TextButton", {
+		Size = UDim2.new(0, 30, 0, 20),
+		Position = UDim2.new(1, -30, 0.5, -10),
+		BackgroundColor3 = default,
+		Text = "",
+		Parent = colorPicker.Frame,
+	})
+	createInstance("UICorner", { CornerRadius = UDim.new(0, 6), Parent = colorButton })
 
-    UIState[pickerId] = default
-    table.insert(section.Elements, picker)
-    Registry[pickerId] = picker
-    return picker
+	-- Placeholder for color picker UI (simplified for Roblox)
+	colorButton.MouseButton1Click:Connect(function()
+		if not library.IsLocked then
+			-- In a real implementation, open a color picker UI
+			local newColor = Color3.new(math.random(), math.random(), math.random()) -- Placeholder
+			colorPicker.Value = newColor
+			colorButton.BackgroundColor3 = newColor
+			callback(newColor)
+		end
+	end)
+
+	section.Elements[name] = { Type = "ColorPicker", Instance = colorPicker.Frame, Value = colorPicker.Value }
+	library.Registry[name .. "_ColorPicker"] = { Type = "ColorPicker", Instance = colorPicker.Frame }
+
+	return colorPicker
 end
 
-function rbxscriptlib:SetColorPickerValue(picker, color)
-    picker.BackgroundColor3 = color
-    UIState[picker.Name] = color
+-- Set color picker value
+function rbxscriptlib:SetColorPicker(section, name, color)
+	local colorPicker = section.Elements[name]
+	if colorPicker and colorPicker.Type == "ColorPicker" then
+		colorPicker.Value = color
+		local colorButton = colorPicker.Frame:FindFirstChildOfClass("TextButton")
+		colorButton.BackgroundColor3 = color
+	end
 end
 
+-- Slider creation
 function rbxscriptlib:CreateSlider(section, name, min, max, default, callback)
-    local sliderId = HttpService:GenerateGUID(false)
-    local slider = Instance.new("Frame")
-    slider.Size = UDim2.new(1, -10, 0, 30)
-    slider.Position = UDim2.new(0, 5, 0, #section.Elements * 40 + 30)
-    slider.BackgroundColor3 = CurrentTheme.Background
-    slider.Parent = section.Frame
+	local slider = {
+		Frame = createInstance("Frame", {
+			Name = name .. "_Slider",
+			Size = UDim2.new(1, 0, 0, 50),
+			BackgroundTransparency = 1,
+			Parent = section.Frame,
+		}),
+		Value = default or min,
+	}
 
-    local sliderBar = Instance.new("Frame")
-    sliderBar.Size = UDim2.new(1, 0, 0, 10)
-    sliderBar.Position = UDim2.new(0, 0, 0, 20)
-    sliderBar.BackgroundColor3 = CurrentTheme.Accent
-    sliderBar.Parent = slider
+	local label = createInstance("TextLabel", {
+		Size = UDim2.new(1, 0, 0, 20),
+		BackgroundTransparency = 1,
+		Text = name .. ": " .. default,
+		TextColor3 = library.Theme.TextColor,
+		Font = library.Theme.Font,
+		TextSize = library.Theme.FontSize,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Parent = slider.Frame,
+	})
 
-    local value = default or min
-    local function updateSlider()
-        local ratio = (value - min) / (max - min)
-        sliderBar.Size = UDim2.new(ratio, 0, 0, 10)
-        if callback then callback(value) end
-        UIState[sliderId] = value
-    end
+	local sliderBar = createInstance("Frame", {
+		Size = UDim2.new(1, -10, 0, 10),
+		Position = UDim2.new(0, 5, 0, 30),
+		BackgroundColor3 = library.Theme.PrimaryColor,
+		Parent = slider.Frame,
+	})
+	createInstance("UICorner", { CornerRadius = UDim.new(0, 4), Parent = sliderBar })
 
-    slider.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            local mouse = UserInputService:GetMouseLocation()
-            local relativeX = (mouse.X - slider.AbsolutePosition.X) / slider.AbsoluteSize.X
-            value = math.clamp(min + relativeX * (max - min), min, max)
-            updateSlider()
-        end
-    end)
+	local fill = createInstance("Frame", {
+		Size = UDim2.new((default - min) / (max - min), 0, 1, 0),
+		BackgroundColor3 = library.Theme.AccentColor,
+		Parent = sliderBar,
+	})
+	createInstance("UICorner", { CornerRadius = UDim.new(0, 4), Parent = fill })
 
-    UIState[sliderId] = value
-    table.insert(section.Elements, slider)
-    Registry[sliderId] = slider
-    return slider
+	local sliderButton = createInstance("TextButton", {
+		Size = UDim2.new(0, 20, 0, 20),
+		Position = UDim2.new((default - min) / (max - min), -10, 0, -5),
+		BackgroundColor3 = library.Theme.AccentColor,
+		Text = "",
+		Parent = sliderBar,
+	})
+	createInstance("UICorner", { CornerRadius = UDim.new(0, 10), Parent = sliderButton })
+
+	local dragging = false
+	sliderButton.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 and not library.IsLocked then
+			dragging = true
+		end
+	end)
+	sliderButton.InputEnded:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 then
+			dragging = false
+		end
+	end)
+	UserInputService.InputChanged:Connect(function(input)
+		if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+			local relativeX = math.clamp(
+				(input.Position.X - sliderBar.AbsolutePosition.X) / sliderBar.AbsoluteSize.X,
+				0,
+				1
+			)
+			slider.Value = min + (max - min) * relativeX
+			sliderButton.Position = UDim2.new(relativeX, -10, 0, -5)
+			fill.Size = UDim2.new(relativeX, 0, 1, 0)
+			label.Text = name .. ": " .. math.floor(slider.Value)
+			callback(slider.Value)
+		end
+	end)
+
+	section.Elements[name] = { Type = "Slider", Instance = slider.Frame, Value = slider.Value }
+	library.Registry[name .. "_Slider"] = { Type = "Slider", Instance = slider.Frame }
+
+	return slider
 end
 
-function rbxscriptlib:ChangeSliderValue(slider, value)
-    UIState[slider.Name] = value
-    local min, max = 0, 100 -- Placeholder, would need to store min/max
-    slider:FindFirstChild("Frame").Size = UDim2.new((value - min) / (max - min), 0, 0, 10)
+-- Change slider value
+function rbxscriptlib:ChangeSlider(section, name, value)
+	local slider = section.Elements[name]
+	if slider and slider.Type == "Slider" then
+		local min, max = 0, 100 -- Placeholder, should be stored with slider
+		slider.Value = math.clamp(value, min, max)
+		local relativeX = (value - min) / (max - min)
+		local sliderBar = slider.Frame:FindFirstChildOfClass("Frame")
+		local fill = sliderBar:FindFirstChildOfClass("Frame")
+		local sliderButton = sliderBar:FindFirstChildOfClass("TextButton")
+		sliderButton.Position = UDim2.new(relativeX, -10, 0, -5)
+		fill.Size = UDim2.new(relativeX, 0, 1, 0)
+		slider.Frame:FindFirstChildOfClass("TextLabel").Text = name .. ": " .. math.floor(value)
+	end
 end
 
-function rbxscriptlib:CreateLabel(section, text)
-    local labelId = HttpService:GenerateGUID(false)
-    local label = Instance.new("TextLabel")
-    label.Size = UDim2.new(1, -10, 0, 30)
-    label.Position = UDim2.new(0, 5, 0, #section.Elements * 40 + 30)
-    label.Text = text
-    label.TextColor3 = CurrentTheme.Text
-    label.Font = Font
-    label.TextSize = 14
-    label.BackgroundTransparency = 1
-    label.Parent = section.Frame
+-- Label creation
+function rbxscriptlib:CreateLabel(section, name, text)
+	local label = createInstance("TextLabel", {
+		Name = name .. "_Label",
+		Size = UDim2.new(1, 0, 0, 20),
+		BackgroundTransparency = 1,
+		Text = text,
+		TextColor3 = library.Theme.TextColor,
+		Font = library.Theme.Font,
+		TextSize = library.Theme.FontSize,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Parent = section.Frame,
+	})
 
-    table.insert(section.Elements, label)
-    Registry[labelId] = label
-    return label
+	section.Elements[name] = { Type = "Label", Instance = label }
+	library.Registry[name .. "_Label"] = { Type = "Label", Instance = label }
+
+	return label
 end
 
-function rbxscriptlib:ChangeLabelContent(label, text)
-    label.Text = text
+-- Change label content
+function rbxscriptlib:ChangeLabel(section, name, text)
+	local label = section.Elements[name]
+	if label and label.Type == "Label" then
+		label.Instance.Text = text
+	end
 end
 
-function rbxscriptlib:CreateParagraph(section, text)
-    local paragraphId = HttpService:GenerateGUID(false)
-    local paragraph = Instance.new("TextLabel")
-    paragraph.Size = UDim2.new(1, -10, 0, 50)
-    paragraph.Position = UDim2.new(0, 5, 0, #section.Elements * 60 + 30)
-    paragraph.Text = text
-    paragraph.TextColor3 = CurrentTheme.Text
-    paragraph.Font = Font
-    paragraph.TextSize = 14
-    paragraph.TextWrapped = true
-    paragraph.BackgroundTransparency = 1
-    paragraph.Parent = section.Frame
+-- Paragraph creation
+function rbxscriptlib:CreateParagraph(section, name, text)
+	local paragraph = createInstance("TextLabel", {
+		Name = name .. "_Paragraph",
+		Size = UDim2.new(1, 0, 0, 0),
+		AutomaticSize = Enum.AutomaticSize.Y,
+		BackgroundTransparency = 1,
+		Text = text,
+		TextColor3 = library.Theme.TextColor,
+		Font = library.Theme.Font,
+		TextSize = library.Theme.FontSize - 2,
+		TextWrapped = true,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Parent = section.Frame,
+	})
 
-    table.insert(section.Elements, paragraph)
-    Registry[paragraphId] = paragraph
-    return paragraph
+	section.Elements[name] = { Type = "Paragraph", Instance = paragraph }
+	library.Registry[name .. "_Paragraph"] = { Type = "Paragraph", Instance = paragraph }
+
+	return paragraph
 end
 
-function rbxscriptlib:ChangeParagraphContent(paragraph, text)
-    paragraph.Text = text
+-- Change paragraph content
+function rbxscriptlib:ChangeParagraph(section, name, text)
+	local paragraph = section.Elements[name]
+	if paragraph and paragraph.Type == "Paragraph" then
+		paragraph.Instance.Text = text
+	end
 end
 
-function rbxscriptlib:CreateInput(section, name, callback)
-    local inputId = HttpService:GenerateGUID(false)
-    local input = Instance.new("TextBox")
-    input.Size = UDim2.new(1, -10, 0, 30)
-    input.Position = UDim2.new(0, 5, 0, #section.Elements * 40 + 30)
-    input.Text = name
-    input.TextColor3 = CurrentTheme.Text
-    input.Font = Font
-    input.TextSize = 14
-    input.BackgroundColor3 = CurrentTheme.Background
-    input.Parent = section.Frame
+-- Adaptive input creation
+function rbxscriptlib:CreateInput(section, name, default, callback)
+	local input = {
+		Frame = createInstance("Frame", {
+			Name = name .. "_Input",
+			Size = UDim2.new(1, 0, 0, 30),
+			BackgroundTransparency = 1,
+			Parent = section.Frame,
+		}),
+		Value = default or "",
+	}
 
-    input.FocusLost:Connect(function()
-        local value = input.Text
-        if tonumber(value) then
-            value = tonumber(value)
-        elseif value:lower() == "true" or value:lower() == "false" then
-            value = value:lower() == "true"
-        end
-        if callback then callback(value) end
-        UIState[inputId] = value
-    end)
+	local label = createInstance("TextLabel", {
+		Size = UDim2.new(1, -100, 1, 0),
+		BackgroundTransparency = 1,
+		Text = name,
+		TextColor3 = library.Theme.TextColor,
+		Font = library.Theme.Font,
+		TextSize = library.Theme.FontSize,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Parent = input.Frame,
+	})
 
-    table.insert(section.Elements, input)
-    Registry[inputId] = input
-    return input
+	local textBox = createInstance("TextBox", {
+		Size = UDim2.new(0, 90, 0, 20),
+		Position = UDim2.new(1, -90, 0.5, -10),
+		BackgroundColor3 = library.Theme.PrimaryColor,
+		Text = default or "",
+		TextColor3 = library.Theme.TextColor,
+		Font = library.Theme.Font,
+		TextSize = library.Theme.FontSize,
+		Parent = input.Frame,
+	})
+	createInstance("UICorner", { CornerRadius = UDim.new(0, 6), Parent = textBox })
+
+	textBox.FocusLost:Connect(function()
+		if not library.IsLocked then
+			local value = textBox.Text
+			-- Auto-detect type
+			if tonumber(value) then
+				input.Value = tonumber(value)
+			elseif value:lower() == "true" or value:lower() == "false" then
+				input.Value = value:lower() == "true"
+			else
+				input.Value = value
+			end
+			callback(input.Value)
+		end
+	end)
+
+	section.Elements[name] = { Type = "Input", Instance = input.Frame, Value = input.Value }
+	library.Registry[name .. "_Input"] = { Type = "Input", Instance = input.Frame }
+
+	return input
 end
 
+-- Keybind creation
 function rbxscriptlib:CreateKeybind(section, name, default, callback)
-    local keybindId = HttpService:GenerateGUID(false)
-    local keybind = Instance.new("TextButton")
-    keybind.Size = UDim2.new(1, -10, 0, 30)
-    keybind.Position = UDim2.new(0, 5, 0, #section.Elements * 40 + 30)
-    keybind.Text = name .. " (" .. tostring(default or Enum.KeyCode.T) .. ")"
-    keybind.TextColor3 = CurrentTheme.Text
-    keybind.Font = Font
-    keybind.TextSize = 14
-    keybind.BackgroundColor3 = CurrentTheme.Background
-    keybind.Parent = section.Frame
+	local keybind = {
+		Frame = createInstance("Frame", {
+			Name = name .. "_Keybind",
+			Size = UDim2.new(1, 0, 0, 30),
+			BackgroundTransparency = 1,
+			Parent = section.Frame,
+		}),
+		Value = default or Enum.KeyCode.T,
+	}
 
-    local binding = false
-    local key = default or Enum.KeyCode.T
-    keybind.MouseButton1Click:Connect(function()
-        binding = true
-        keybind.Text = name .. " (Press a key)"
-    end)
+	local label = createInstance("TextLabel", {
+		Size = UDim2.new(1, -60, 1, 0),
+		BackgroundTransparency = 1,
+		Text = name,
+		TextColor3 = library.Theme.TextColor,
+		Font = library.Theme.Font,
+		TextSize = library.Theme.FontSize,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Parent = keybind.Frame,
+	})
 
-    UserInputService.InputBegan:Connect(function(input)
-        if binding and input.UserInputType == Enum.UserInputType.Keyboard then
-            key = input.KeyCode
-            keybind.Text = name .. " (" .. tostring(key) .. ")"
-            binding = false
-            if callback then callback(key) end
-            UIState[keybindId] = key
-        end
-    end)
+	local keyButton = createInstance("TextButton", {
+		Size = UDim2.new(0, 50, 0, 20),
+		Position = UDim2.new(1, -50, 0.5, -10),
+		BackgroundColor3 = library.Theme.PrimaryColor,
+		Text = default.Name,
+		TextColor3 = library.Theme.TextColor,
+		Font = library.Theme.Font,
+		TextSize = library.Theme.FontSize,
+		Parent = keybind.Frame,
+	})
+	createInstance("UICorner", { CornerRadius = UDim.new(0, 6), Parent = keyButton })
 
-    table.insert(section.Elements, keybind)
-    Registry[keybindId] = keybind
-    return keybind
+	local binding = false
+	keyButton.MouseButton1Click:Connect(function()
+		if not library.IsLocked then
+			binding = true
+			keyButton.Text = "Press a key..."
+		end
+	end)
+
+	UserInputService.InputBegan:Connect(function(input)
+		if binding and input.UserInputType == Enum.UserInputType.Keyboard then
+			keybind.Value = input.KeyCode
+			keyButton.Text = input.KeyCode.Name
+			binding = false
+			callback(keybind.Value)
+		end
+	end)
+
+	section.Elements[name] = { Type = "Keybind", Instance = keybind.Frame, Value = keybind.Value }
+	library.Registry[name .. "_Keybind"] = { Type = "Keybind", Instance = keybind.Frame }
+
+	return keybind
 end
 
-function rbxscriptlib:ChangeKeybindValue(keybind, key)
-    keybind.Text = keybind.Text:match("^(.-)%s%(%a+%)") .. " (" .. tostring(key) .. ")"
-    UIState[keybind.Name] = key
+-- Change keybind value
+function rbxscriptlib:ChangeKeybind(section, name, key)
+	local keybind = section.Elements[name]
+	if keybind and keybind.Type == "Keybind" then
+		keybind.Value = key
+		local keyButton = keybind.Frame:FindFirstChildOfClass("TextButton")
+		keyButton.Text = key.Name
+	end
 end
 
-function rbxscriptlib:CreateDropdown(section, name, options, callback)
-    local dropdownId = HttpService:GenerateGUID(false)
-    local dropdown = Instance.new("TextButton")
-    dropdown.Size = UDim2.new(1, -10, 0, 30)
-    dropdown.Position = UDim2.new(0, 5, 0, #section.Elements * 40 + 30)
-    dropdown.Text = name .. " (" .. options[1] .. ")"
-    dropdown.TextColor3 = CurrentTheme.Text
-    dropdown.Font = Font
-    dropdown.TextSize = 14
-    dropdown.BackgroundColor3 = CurrentTheme.Background
-    dropdown.Parent = section.Frame
+-- Dropdown creation
+function rbxscriptlib:CreateDropdown(section, name, options, default, multiSelect, callback)
+	local dropdown = {
+		Frame = createInstance("Frame", {
+			Name = name .. "_Dropdown",
+			Size = UDim2.new(1, 0, 0, 30),
+			BackgroundTransparency = 1,
+			Parent = section.Frame,
+		}),
+		Options = options or {},
+		Value = multiSelect and {} or (default or options[1]),
+		IsMultiSelect = multiSelect,
+	}
 
-    local dropdownFrame = Instance.new("Frame")
-    dropdownFrame.Size = UDim2.new(1, 0, 0, #options * 30)
-    dropdownFrame.Position = UDim2.new(0, 0, 1, 0)
-    dropdownFrame.BackgroundColor3 = CurrentTheme.Background
-    dropdownFrame.Visible = false
-    dropdownFrame.Parent = dropdown
+	local label = createInstance("TextLabel", {
+		Size = UDim2.new(1, -100, 1, 0),
+		BackgroundTransparency = 1,
+		Text = name,
+		TextColor3 = library.Theme.TextColor,
+		Font = library.Theme.Font,
+		TextSize = library.Theme.FontSize,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Parent = dropdown.Frame,
+	})
 
-    local dropdownOptions = {}
-    for i, option in ipairs(options) do
-        local optButton = Instance.new("TextButton")
-        optButton.Size = UDim2.new(1, 0, 0, 30)
-        optButton.Position = UDim2.new(0, 0, 0, (i - 1) * 30)
-        optButton.Text = option
-        optButton.TextColor3 = CurrentTheme.Text
-        optButton.Font = Font
-        optButton.TextSize = 14
-        optButton.BackgroundColor3 = CurrentTheme.Background
-        optButton.Parent = dropdownFrame
+	local dropdownButton = createInstance("TextButton", {
+		Size = UDim2.new(0, 90, 0, 20),
+		Position = UDim2.new(1, -90, 0.5, -10),
+		BackgroundColor3 = library.Theme.PrimaryColor,
+		Text = multiSelect and "Select" or (default or options[1] or ""),
+		TextColor3 = library.Theme.TextColor,
+		Font = library.Theme.Font,
+		TextSize = library.Theme.FontSize,
+		Parent = dropdown.Frame,
+	})
+	createInstance("UICorner", { CornerRadius = UDim.new(0, 6), Parent = dropdownButton })
 
-        optButton.MouseButton1Click:Connect(function()
-            dropdown.Text = name .. " (" .. option .. ")"
-            dropdownFrame.Visible = false
-            if callback then callback(option) end
-            UIState[dropdownId] = option
-        end)
-        table.insert(dropdownOptions, optButton)
-    end
+	local dropdownMenu = createInstance("Frame", {
+		Name = "Menu",
+		Size = UDim2.new(0, 90, 0, 0),
+		Position = UDim2.new(1, -90, 0.5, 10),
+		BackgroundColor3 = library.Theme.BackgroundColor,
+		BorderSizePixel = 0,
+		Visible = false,
+		Parent = dropdown.Frame,
+	})
+	createInstance("UICorner", { CornerRadius = UDim.new(0, 6), Parent = dropdownMenu })
+	createInstance("UIListLayout", {
+		SortOrder = Enum.SortOrder.LayoutOrder,
+		Padding = UDim.new(0, 5),
+		Parent = dropdownMenu,
+	})
 
-    dropdown.MouseButton1Click:Connect(function()
-        dropdownFrame.Visible = not dropdownFrame.Visible
-    end)
+	local function updateMenu()
+		dropdownMenu.Size = UDim2.new(0, 90, 0, #dropdown.Options * 25 + 10)
+		dropdownMenu:ClearAllChildren()
+		createInstance("UIListLayout", {
+			SortOrder = Enum.SortOrder.LayoutOrder,
+			Padding = UDim.new(0, 5),
+			Parent = dropdownMenu,
+		})
+		for _, option in ipairs(dropdown.Options) do
+			local optButton = createInstance("TextButton", {
+				Size = UDim2.new(1, -10, 0, 20),
+				Position = UDim2.new(0, 5, 0, 0),
+				BackgroundColor3 = library.Theme.PrimaryColor,
+				Text = option,
+				TextColor3 = library.Theme.TextColor,
+				Font = library.Theme.Font,
+				TextSize = library.Theme.FontSize,
+				Parent = dropdownMenu,
+			})
+			createInstance("UICorner", { CornerRadius = UDim.new(0, 4), Parent = optButton })
 
-    table.insert(section.Elements, dropdown)
-    Registry[dropdownId] = { Button = dropdown, Frame = dropdownFrame, Options = dropdownOptions }
-    return dropdown
+			optButton.MouseButton1Click:Connect(function()
+				if not library.IsLocked then
+					if multiSelect then
+						if not table.find(dropdown.Value, option) then
+							table.insert(dropdown.Value, option)
+						else
+							table.remove(dropdown.Value, table.find(dropdown.Value, option))
+						end
+						dropdownButton.Text = #dropdown.Value > 0 and table.concat(dropdown.Value, ", ") or "Select"
+					else
+						dropdown.Value = option
+						dropdownButton.Text = option
+						dropdownMenu.Visible = false
+					end
+					callback(dropdown.Value)
+				end
+			end)
+		end
+	end
+
+	dropdownButton.MouseButton1Click:Connect(function()
+		if not library.IsLocked then
+			dropdownMenu.Visible = not dropdownMenu.Visible
+		end
+	end)
+
+	updateMenu()
+
+	section.Elements[name] = { Type = "Dropdown", Instance = dropdown.Frame, Value = dropdown.Value }
+	library.Registry[name .. "_Dropdown"] = { Type = "Dropdown", Instance = dropdown.Frame }
+
+	return dropdown
 end
 
-function rbxscriptlib:AddDropdownOption(dropdown, option)
-    local dropdownData = Registry[dropdown.Name]
-    local optButton = Instance.new("TextButton")
-    optButton.Size = UDim2.new(1, 0, 0, 30)
-    optButton.Position = UDim2.new(0, 0, 0, #dropdownData.Options * 30)
-    optButton.Text = option
-    optButton.TextColor3 = CurrentTheme.Text
-    optButton.Font = Font
-    optButton.TextSize = 14
-    optButton.BackgroundColor3 = CurrentTheme.Background
-    optButton.Parent = dropdownData.Frame
-
-    optButton.MouseButton1Click:Connect(function()
-        dropdown.Text = dropdown.Text:match("^(.-)%s%(%a+%)") .. " (" .. option .. ")"
-        dropdownData.Frame.Visible = false
-        UIState[dropdown.Name] = option
-    end)
-
-    table.insert(dropdownData.Options, optButton)
-    dropdownData.Frame.Size = UDim2.new(1, 0, 0, #dropdownData.Options * 30)
+-- Add options to dropdown
+function rbxscriptlib:AddDropdownOptions(section, name, newOptions)
+	local dropdown = section.Elements[name]
+	if dropdown and dropdown.Type == "Dropdown" then
+		for _, option in ipairs(newOptions) do
+			if not table.find(dropdown.Options, option) then
+				table.insert(dropdown.Options, option)
+			end
+		end
+		-- Update menu (simplified, would need actual menu refresh)
+	end
 end
 
-function rbxscriptlib:SelectDropdownOption(dropdown, option)
-    dropdown.Text = dropdown.Text:match("^(.-)%s%(%a+%)") .. " (" .. option .. ")"
-    UIState[dropdown.Name] = option
+-- Select dropdown option
+function rbxscriptlib:SelectDropdownOption(section, name, option)
+	local dropdown = section.Elements[name]
+	if dropdown and dropdown.Type == "Dropdown" then
+		if dropdown.IsMultiSelect then
+			if not table.find(dropdown.Value, option) then
+				table.insert(dropdown.Value, option)
+			end
+			dropdown.Frame:FindFirstChildOfClass("TextButton").Text = table.concat(dropdown.Value, ", ")
+		else
+			dropdown.Value = option
+			dropdown.Frame:FindFirstChildOfClass("TextButton").Text = option
+		end
+	end
 end
 
-function rbxscriptlib:Finalize()
-    -- Build and optimize UI
-    showNotification("UI Finalized", 2)
+-- Theme switching
+function rbxscriptlib:SwitchTheme(themeName)
+	if themeName == "Light" then
+		library.Theme = {
+			PrimaryColor = Color3.fromRGB(200, 200, 200),
+			AccentColor = Color3.fromRGB(0, 120, 255),
+			BackgroundColor = Color3.fromRGB(240, 240, 240),
+			TextColor = Color3.fromRGB(0, 0, 0),
+			Font = Enum.Font.SourceSansPro,
+			FontSize = 16,
+		}
+	elseif themeName == "Dark" then
+		library.Theme = {
+			PrimaryColor = Color3.fromRGB(30, 30, 30),
+			AccentColor = Color3.fromRGB(255, 100, 100),
+			BackgroundColor = Color3.fromRGB(20, 20, 20),
+			TextColor = Color3.fromRGB(255, 255, 255),
+			Font = Enum.Font.SourceSansPro,
+			FontSize = 16,
+		}
+	else -- Futuristic
+		library.Theme = {
+			PrimaryColor = Color3.fromRGB(10, 25, 47),
+			AccentColor = Color3.fromRGB(0, 255, 255),
+			BackgroundColor = Color3.fromRGB(20, 20, 30),
+			TextColor = Color3.fromRGB(255, 255, 255),
+			Font = Enum.Font.SourceSansPro,
+			FontSize = 16,
+		}
+	end
+
+	-- Update all elements (simplified, would need to iterate through registry)
+	for _, window in pairs(library.Windows) do
+		window.MainFrame.BackgroundColor3 = library.Theme.BackgroundColor
+		window.NavFrame.BackgroundColor3 = library.Theme.PrimaryColor
+		for _, tab in pairs(window.Tabs) do
+			tab.NavButton.BackgroundColor3 = library.Theme.PrimaryColor
+			tab.NavButton.TextColor3 = library.Theme.TextColor
+			for _, section in pairs(tab.Sections) do
+				section.Frame.BackgroundColor3 = library.Theme.BackgroundColor
+				for _, element in pairs(section.Elements) do
+					if element.Type == "Button" or element.Type == "Toggle" or element.Type == "ColorPicker" or element.Type == "Slider" or element.Type == "Dropdown" then
+						local button = element.Instance:FindFirstChildOfClass("TextButton") or element.Instance
+						if button then
+							button.BackgroundColor3 = library.Theme.PrimaryColor
+							button.TextColor3 = library.Theme.TextColor
+						end
+					elseif element.Type == "Label" or element.Type == "Paragraph" then
+						element.Instance.TextColor3 = library.Theme.TextColor
+					end
+				end
+			end
+		end
+	end
 end
 
-function rbxscriptlib:Destroy()
-    ScreenGui:Destroy()
-    Windows = {}
-    Registry = {}
-    UIState = {}
-    ActiveWindow = nil
+-- Font customization
+function rbxscriptlib:SetFont(font, size)
+	library.Theme.Font = font
+	library.Theme.FontSize = size
+	-- Update all text elements (simplified)
+	for _, window in pairs(library.Windows) do
+		for _, tab in pairs(window.Tabs) do
+			tab.NavButton.Font = font
+			tab.NavButton.TextSize = size
+			for _, section in pairs(tab.Sections) do
+				for _, element in pairs(section.Elements) do
+					if element.Type == "Label" or element.Type == "Paragraph" then
+						element.Instance.Font = font
+						element.Instance.TextSize = size
+					elseif element.Type == "Button" or element.Type == "Toggle" or element.Type == "ColorPicker" or element.Type == "Slider" or element.Type == "Dropdown" then
+						local button = element.Instance:FindFirstChildOfClass("TextButton") or element.Instance
+						if button then
+							button.Font = font
+							button.TextSize = size
+						end
+					end
+				end
+			end
+		end
+	end
 end
 
-function rbxscriptlib:ChangeTheme(themeName)
-    CurrentTheme = Themes[themeName] or Themes.Futuristic
-    for _, window in pairs(Windows) do
-        window.Frame.BackgroundColor3 = CurrentTheme.Background
-        window.NavPanel.BackgroundColor3 = CurrentTheme.Background:lerp(CurrentTheme.Glow, 0.1)
-        window.Frame.BorderColor3 = CurrentTheme.Glow
-        for _, tab in pairs(window.Tabs) do
-            tab.Button.TextColor3 = CurrentTheme.Text
-            for _, section in pairs(tab.Sections) do
-                section.Frame.BackgroundColor3 = CurrentTheme.Background:lerp(CurrentTheme.Glow, 0.05)
-                section.Frame.BorderColor3 = CurrentTheme.Glow
-                for _, element in pairs(section.Elements) do
-                    if element:IsA("TextLabel") or element:IsA("TextButton") then
-                        element.TextColor3 = CurrentTheme.Text
-                    end
-                end
-            end
-        end
-    end
+-- Toggle visibility
+function rbxscriptlib:ToggleVisibility(window, visible)
+	window.MainFrame.Visible = visible
 end
 
-function rbxscriptlib:ToggleVisibility(element)
-    element.Visible = not element.Visible
+-- Save UI state
+function rbxscriptlib:SaveState(window)
+	local state = {}
+	for tabName, tab in pairs(window.Tabs) do
+		for sectionName, section in pairs(tab.Sections) for elementName, element in pairs(section.Elements) do
+			if element.Value then
+				state[tabName .. "_" .. sectionName .. "_" .. elementName] = element.Value
+			end
+		end
+	end
+	return HttpService:JSONEncode(state)
 end
 
-function rbxscriptlib:ShowDebugConsole()
-    for _, log in ipairs(DebugConsole.logs) do
-        print(log)
-    end
+-- Load UI state
+function rbxscriptlib:LoadState(window, stateJson)
+	local state = HttpService:JSONDecode(stateJson)
+	for key, value in pairs(state) do
+		local tabName, sectionName, elementName = key:match("([^_]+)_([^_]+)_(.+)")
+		local tab = window.Tabs[tabName]
+		if tab then
+			local section = tab.Sections[sectionName]
+			if section then
+				local element = section.Elements[elementName]
+				if element then
+					if element.Type == "Toggle" then
+						self:ChangeToggle(section, elementName, value)
+					elseif element.Type == "Slider" then
+						self:ChangeSlider(section, elementName, value)
+					elseif element.Type == "Dropdown" then
+						self:SelectDropdownOption(section, elementName, value)
+					elseif element.Type == "ColorPicker" then
+						self:SetColorPicker(section, elementName, value)
+					end
+				end
+			end
+		end
+	end
 end
 
--- Plugin API (placeholder)
-function rbxscriptlib:RegisterPlugin(plugin)
-    DebugConsole.logs[#DebugConsole.logs + 1] = "Plugin registered: " .. plugin.Name
+-- Debug console
+function rbxscriptlib:OpenDebugConsole(window)
+	local console = createInstance("Frame", {
+		Name = "DebugConsole",
+		Size = UDim2.new(0, 300, 0, 200),
+		Position = UDim2.new(0, 10, 1, -210),
+		BackgroundColor3 = library.Theme.BackgroundColor,
+		Parent = window.ScreenGui,
+	})
+	createInstance("UICorner", { CornerRadius = UDim.new(0, 6), Parent = console })
+	createInstance("UIListLayout", { SortOrder = Enum.SortOrder.LayoutOrder, Parent = console })
+
+	local log = createInstance("TextLabel", {
+		Size = UDim2.new(1, -10, 0, 180),
+		Position = UDim2.new(0, 5, 0, 5),
+		BackgroundTransparency = 1,
+		Text = "Debug Console:\n" .. HttpService:JSONEncode(library.Registry, { Pretty = true }),
+		TextColor3 = library.Theme.TextColor,
+		Font = library.Theme.Font,
+		TextSize = library.Theme.FontSize - 2,
+		TextWrapped = true,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Parent = console,
+	})
+
+	library.Registry["DebugConsole"] = { Type = "DebugConsole", Instance = console }
 end
 
--- Example usage
-local window = rbxscriptlib:CreateWindow("rbxscriptlib Demo")
-local tab = rbxscriptlib:CreateTab(window, "Main")
-local section = rbxscriptlib:CreateSection(tab, "Controls")
-rbxscriptlib:CreateButton(section, "Click Me", function() showNotification("Button Clicked!", 2) end)
-rbxscriptlib:CreateToggle(section, "Toggle Feature", true, function(value) showNotification("Toggle: " .. tostring(value), 2) end)
-rbxscriptlib:CreateSlider(section, "Speed", 0, 100, 50, function(value) showNotification("Slider: " .. value, 2) end)
-rbxscriptlib:CreateDropdown(section, "Select Option", {"Option 1", "Option 2", "Option 3"}, function(option) showNotification("Selected: " .. option, 2) end)
-rbxscriptlib:Finalize()
+-- Finalize UI
+function rbxscriptlib:Finalize(window)
+	if #window.Tabs > 0 then
+		window.Tabs[window.Tabs[1].Name].ContentFrame.Visible = true
+		window.Tabs[window.Tabs[1].Name].NavButton.BackgroundColor3 = library.Theme.AccentColor
+	end
+	TweenService:Create(
+		window.MainFrame,
+		library.Animations.OpenTween,
+		{ Position = UDim2.new(0.5, -300, 0.5, -200) }
+	):Play()
+end
+
+-- Destroy UI
+function rbxscriptlib:Destroy(window)
+	window.ScreenGui:Destroy()
+	library.Windows[window.Name] = nil
+	library.Registry[window.Name] = nil
+end
+
+-- Key system
+function rbxscriptlib:EnableKeySystem(key)
+	library.KeySystemEnabled = true
+	library.Key = key
+	library.IsLocked = true
+end
+
+function rbxscriptlib:Unlock(key)
+	if library.KeySystemEnabled and key == library.Key then
+		library.IsLocked = false
+	end
+end
+
+-- Plugin API
+function rbxscriptlib:RegisterPlugin(pluginName, pluginFunctions)
+	library.Plugins = library.Plugins or {}
+	library.Plugins[pluginName] = pluginFunctions
+end
 
 return rbxscriptlib

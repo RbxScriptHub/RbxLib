@@ -1,6 +1,6 @@
 -- rbxscriptlib: A futuristic, developer-friendly Roblox UI library
 -- Inspired by OrionLib, with a modern left-side navigation layout
--- Features a sci-fi aesthetic with smooth animations, glowing highlights, and rounded corners
+
 
 local rbxscriptlib = {}
 local Players = game:GetService("Players")

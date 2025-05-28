@@ -1,7 +1,7 @@
-local Luxt1 = {}
+local rbxscriptlib = {}
 
-function Luxt1.CreateWindow(libName, logoId)
-    local LuxtLib = Instance.new("ScreenGui")
+function rbxscriptlib.CreateWindow(libName, logoId)
+    local rbxscriptlib = Instance.new("ScreenGui")
     local shadow = Instance.new("ImageLabel")
     local MainFrame = Instance.new("Frame")
     local sideHeading = Instance.new("Frame")
@@ -48,10 +48,10 @@ function Luxt1.CreateWindow(libName, logoId)
     game:GetService("UserInputService").InputBegan:connect(function(current, ok) 
         if not ok then 
             if current.KeyCode.Name == oldKey then 
-                if LuxtLib.Enabled == true then
-                    LuxtLib.Enabled = false
+                if rbxscriptlib.Enabled == true then
+                    rbxscriptlib.Enabled = false
                 else
-                    LuxtLib.Enabled = true
+                    rbxscriptlib.Enabled = true
                 end
             end
         end
@@ -106,13 +106,13 @@ function Luxt1.CreateWindow(libName, logoId)
     pageFolder.Parent = framesAll
 
     --
-    libName = libName or "LuxtLib"
+    libName = libName or "rbxscriptlib"
     logoId = logoId or ""
     --
 
-    LuxtLib.Name = "LuxtLib"..libName
-    LuxtLib.Parent = game.CoreGui
-    LuxtLib.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    rbxscriptlib.Name = "rbxscriptlib"..libName
+    rbxscriptlib.Parent = game.CoreGui
+    rbxscriptlib.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
     MainFrame.Name = "MainFrame"
     MainFrame.Parent = shadow
@@ -221,7 +221,7 @@ function Luxt1.CreateWindow(libName, logoId)
     framesAll.ZIndex = 2
 
     shadow.Name = "shadow"
-    shadow.Parent = LuxtLib
+    shadow.Parent = rbxscriptlib
     shadow.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
     shadow.BackgroundTransparency = 1.000
     shadow.Position = UDim2.new(0.319562584, 0, 0.168689325, 0)
@@ -1260,4 +1260,4 @@ function Luxt1.CreateWindow(libName, logoId)
     return TabHandling
 end
 
-return Luxt1
+return rbxscriptlib

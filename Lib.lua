@@ -139,6 +139,48 @@ function RbxLib:MakeWindow(config)
     local currentTab = nil
     local isMinimized = false
 
+    -- Notifikasi custom
+    local function showNotification(title, content, duration)
+        local notifyFrame = Instance.new("Frame")
+        notifyFrame.Size = UDim2.new(0, 250, 0, 100)
+        notifyFrame.Position = UDim2.new(0.5, -125, 0.5, -50)
+        notifyFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+        notifyFrame.BackgroundTransparency = 0.3
+        notifyFrame.Parent = screenGui
+
+        local notifyStroke = createRGBStroke(notifyFrame)
+        local notifyCorner = Instance.new("UICorner")
+        notifyCorner.CornerRadius = UDim.new(0, 8)
+        notifyCorner.Parent = notifyFrame
+
+        local notifyTitle = Instance.new("TextLabel")
+        notifyTitle.Size = UDim2.new(1, 0, 0, 30)
+        notifyTitle.BackgroundTransparency = 1
+        notifyTitle.Text = title
+        notifyTitle.TextColor3 = Color3.fromRGB(0, 255, 255)
+        notifyTitle.TextSize = 18
+        notifyTitle.Font = Enum.Font.GothamBlack
+        notifyTitle.Parent = notifyFrame
+
+        local notifyContent = Instance.new("TextLabel")
+        notifyContent.Size = UDim2.new(1, 0, 0, 70)
+        notifyContent.Position = UDim2.new(0, 0, 0, 30)
+        notifyContent.BackgroundTransparency = 1
+        notifyContent.Text = content
+        notifyContent.TextColor3 = Color3.fromRGB(0, 255, 255)
+        notifyContent.TextSize = 14
+        notifyContent.Font = Enum.Font.GothamBlack
+        notifyContent.TextWrapped = true
+        notifyContent.Parent = notifyFrame
+
+        notifyFrame.BackgroundTransparency = 1
+        TweenService:Create(notifyFrame, tweenInfo, {BackgroundTransparency = 0.3}):Play()
+        wait(duration or 3)
+        TweenService:Create(notifyFrame, tweenInfo, {BackgroundTransparency = 1}):Play()
+        wait(0.5)
+        notifyFrame:Destroy()
+    end
+
     -- Logika Minimize
     minimizeButton.MouseButton1Click:Connect(function()
         isMinimized = not isMinimized
@@ -205,7 +247,6 @@ function RbxLib:MakeWindow(config)
     -- Logika Hide/Show dengan Keybind
     local hideKey = config.HideKey or Enum.KeyCode.T
     local isHidden = false
-    local isBinding = false -- Untuk mencegah konflik dengan keybind picker
 
     UserInputService.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode == hideKey and not isBinding then
@@ -292,34 +333,7 @@ function RbxLib:MakeWindow(config)
 
         -- Notifikasi error
         local function showError(message)
-            local errorFrame = Instance.new("Frame")
-            errorFrame.Size = UDim2.new(0, 250, 0, 100)
-            errorFrame.Position = UDim2.new(0.5, -125, 0.5, -50)
-            errorFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-            errorFrame.BackgroundTransparency = 0.3
-            errorFrame.Parent = screenGui
-
-            local errorStroke = createRGBStroke(errorFrame)
-            local errorCorner = Instance.new("UICorner")
-            errorCorner.CornerRadius = UDim.new(0, 8)
-            errorCorner.Parent = errorFrame
-
-            local errorLabel = Instance.new("TextLabel")
-            errorLabel.Size = UDim2.new(1, 0, 1, 0)
-            errorLabel.BackgroundTransparency = 1
-            errorLabel.Text = message or "Invalid Key!"
-            errorLabel.TextColor3 = Color3.fromRGB(0, 255, 255)
-            errorLabel.TextSize = 16
-            errorLabel.Font = Enum.Font.GothamBlack
-            errorLabel.TextWrapped = true
-            errorLabel.Parent = errorFrame
-
-            errorFrame.BackgroundTransparency = 1
-            TweenService:Create(errorFrame, tweenInfo, {BackgroundTransparency = 0.3}):Play()
-            wait(2)
-            TweenService:Create(errorFrame, tweenInfo, {BackgroundTransparency = 1}):Play()
-            wait(0.5)
-            errorFrame:Destroy()
+            showNotification("Error", message, 5)
         end
 
         -- Logika submit kunci
@@ -384,7 +398,7 @@ function RbxLib:MakeWindow(config)
         -- Fungsi untuk membuat Section
         function tab:AddSection(config)
             local sectionFrame = Instance.new("Frame")
-            sectionFrame.Size = UDim2.new(1, -10, 0, 100)
+            sectionFrame.Size = UDim2.new(1, -10, 0, config.Height or 150)
             sectionFrame.Position = UDim2.new(0, 5, 0, 0)
             sectionFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
             sectionFrame.BackgroundTransparency = 0.5
@@ -415,6 +429,36 @@ function RbxLib:MakeWindow(config)
             sectionLayout.SortOrder = Enum.SortOrder.LayoutOrder
             sectionLayout.Padding = UDim.new(0, 5)
             sectionLayout.Parent = sectionContent
+
+            -- Fungsi untuk menambahkan Paragraph (untuk informasi)
+            function tab:AddParagraph(config)
+                local paraFrame = Instance.new("Frame")
+                paraFrame.Size = UDim2.new(1, -10, 0, 100)
+                paraFrame.BackgroundTransparency = 1
+                paraFrame.Parent = sectionContent
+
+                local paraTitle = Instance.new("TextLabel")
+                paraTitle.Size = UDim2.new(1, 0, 0, 30)
+                paraTitle.BackgroundTransparency = 1
+                paraTitle.Text = config.Title or "Title"
+                paraTitle.TextColor3 = Color3.fromRGB(0, 255, 255)
+                paraTitle.TextSize = 16
+                paraTitle.Font = Enum.Font.GothamBlack
+                paraTitle.TextXAlignment = Enum.TextXAlignment.Left
+                paraTitle.Parent = paraFrame
+
+                local paraContent = Instance.new("TextLabel")
+                paraContent.Size = UDim2.new(1, 0, 0, 70)
+                paraContent.Position = UDim2.new(0, 0, 0, 30)
+                paraContent.BackgroundTransparency = 1
+                paraContent.Text = config.Content or "Content"
+                paraContent.TextColor3 = Color3.fromRGB(0, 255, 255)
+                paraContent.TextSize = 14
+                paraContent.Font = Enum.Font.GothamBlack
+                paraContent.TextWrapped = true
+                paraContent.TextXAlignment = Enum.TextXAlignment.Left
+                paraContent.Parent = paraFrame
+            end
 
             -- Fungsi untuk membuat Button dalam section
             function tab:AddButton(config)
@@ -491,6 +535,103 @@ function RbxLib:MakeWindow(config)
                 end)
             end
 
+            -- Fungsi untuk membuat Slider dalam section
+            function tab:AddSlider(config)
+                local sliderFrame = Instance.new("Frame")
+                sliderFrame.Size = UDim2.new(1, -10, 0, 60)
+                sliderFrame.BackgroundTransparency = 1
+                sliderFrame.Parent = sectionContent
+
+                local sliderLabel = Instance.new("TextLabel")
+                sliderLabel.Size = UDim2.new(1, 0, 0, 20)
+                sliderLabel.BackgroundTransparency = 1
+                sliderLabel.Text = config.Name or "Slider"
+                sliderLabel.TextColor3 = Color3.fromRGB(0, 255, 255)
+                sliderLabel.TextSize = 16
+                sliderLabel.Font = Enum.Font.GothamBlack
+                sliderLabel.TextXAlignment = Enum.TextXAlignment.Left
+                sliderLabel.Parent = sliderFrame
+
+                local sliderTrack = Instance.new("Frame")
+                sliderTrack.Size = UDim2.new(1, -20, 0, 10)
+                sliderTrack.Position = UDim2.new(0, 10, 0, 30)
+                sliderTrack.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+                sliderTrack.BackgroundTransparency = 0.5
+                sliderTrack.Parent = sliderFrame
+
+                local trackStroke = createRGBStroke(sliderTrack)
+                local trackCorner = Instance.new("UICorner")
+                trackCorner.CornerRadius = UDim.new(0, 5)
+                trackCorner.Parent = sliderTrack
+
+                local sliderFill = Instance.new("Frame")
+                sliderFill.Size = UDim2.new(0, 0, 1, 0)
+                sliderFill.BackgroundColor3 = Color3.fromRGB(0, 255, 255)
+                sliderFill.BackgroundTransparency = 0.2
+                sliderFill.Parent = sliderTrack
+
+                local fillCorner = Instance.new("UICorner")
+                fillCorner.CornerRadius = UDim.new(0, 5)
+                fillCorner.Parent = sliderFill
+
+                local sliderButton = Instance.new("TextButton")
+                sliderButton.Size = UDim2.new(0, 20, 0, 20)
+                sliderButton.Position = UDim2.new(0, 0, 0, -5)
+                sliderButton.BackgroundColor3 = Color3.fromRGB(0, 255, 255)
+                sliderButton.Text = ""
+                sliderButton.Parent = sliderTrack
+
+                local buttonStroke = createRGBStroke(sliderButton)
+                local buttonCorner = Instance.new("UICorner")
+                buttonCorner.CornerRadius = UDim.new(0, 10)
+                buttonCorner.Parent = sliderButton
+
+                local minValue = config.Range[1]
+                local maxValue = config.Range[2]
+                local increment = config.Increment or 0.1
+                local currentValue = config.Default or minValue
+
+                local valueLabel = Instance.new("TextLabel")
+                valueLabel.Size = UDim2.new(0, 50, 0, 20)
+                valueLabel.Position = UDim2.new(1, -60, 0, -20)
+                valueLabel.BackgroundTransparency = 1
+                valueLabel.Text = tostring(currentValue)
+                valueLabel.TextColor3 = Color3.fromRGB(0, 255, 255)
+                valueLabel.TextSize = 14
+                valueLabel.Font = Enum.Font.GothamBlack
+                valueLabel.Parent = sliderFrame
+
+                local isDraggingSlider = false
+
+                sliderButton.MouseButton1Down:Connect(function()
+                    isDraggingSlider = true
+                end)
+
+                UserInputService.InputEnded:Connect(function(input)
+                    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                        isDraggingSlider = false
+                    end
+                end)
+
+                UserInputService.InputChanged:Connect(function(input)
+                    if isDraggingSlider and input.UserInputType == Enum.UserInputType.MouseMovement then
+                        local mousePos = UserInputService:GetMouseLocation()
+                        local trackPos = sliderTrack.AbsolutePosition
+                        local trackSize = sliderTrack.AbsoluteSize
+                        local relativeX = math.clamp((mousePos.X - trackPos.X) / trackSize.X, 0, 1)
+                        local range = maxValue - minValue
+                        currentValue = minValue + math.floor((relativeX * range) / increment) * increment
+                        currentValue = math.clamp(currentValue, minValue, maxValue)
+                        valueLabel.Text = tostring(currentValue)
+                        sliderFill.Size = UDim2.new(relativeX, 0, 1, 0)
+                        sliderButton.Position = UDim2.new(relativeX, -10, 0, -5)
+                        if config.Callback then
+                            config.Callback(currentValue)
+                        end
+                    end
+                end)
+            end
+
             -- Fungsi untuk membuat Keybind Picker dalam section
             function tab:AddKeybind(config)
                 local keybindFrame = Instance.new("Frame")
@@ -529,7 +670,7 @@ function RbxLib:MakeWindow(config)
 
                 -- Efek hover
                 keybindButton.MouseEnter:Connect(function()
-                    TweenService:Create(keybindButton, tweenInfo, {BackgroundTransparency = 0, TextColor3 = Color3.fromRGB(0, 255, 255)}):Play()
+                    TweenService:Create(keybindButton, tweenInfo.BackgroundTransparency = 0, TextColor3 = Color3.fromRGB(0, 255, 255)}):Play()
                 end)
                 keybindButton.MouseLeave:Connect(function()
                     TweenService:Create(keybindButton, tweenInfo, {BackgroundTransparency = 0.4, TextColor3 = Color3.fromRGB(0, 255, 255)}):Play()

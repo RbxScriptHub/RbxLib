@@ -76,11 +76,139 @@ Button.__index = Button
 
 function Button.new(parent, text, onClick)
     local self = setmetatable({}, Button)
-    self.Frame = Instance.new("TextButton", parent)
+    self.Frame = Instance.new("TextButton", parent) -- Pastikan ini TextButton
     self.Frame.Size = UDim2.new(1, 0, 0, 30)
     self.Frame.Text = text
     Theme:ApplyTo(self.Frame)
-    self.Frame.MouseButton1Click:Connect(onClick)
+    if self.Frame:IsA("TextButton") then
+        self.Frame.MouseButton1Click:Connect(onClick)
+    else
+        warn("Button harus berupa TextButton!")
+    end
+    return self
+end
+
+local Dropdown = {}
+Dropdown.__index = Dropdown
+
+function Dropdown.new(parent, options, default, onChange)
+    local self = setmetatable({}, Dropdown)
+    self.Frame = Instance.new("Frame", parent)
+    self.Frame.Size = UDim2.new(1, 0, 0, 30)
+    self.Button = Instance.new("TextButton", self.Frame)
+    self.Button.Size = UDim2.new(1, 0, 1, 0)
+    self.Button.Text = default or options[1]
+    self.Menu = Instance.new("Frame", self.Frame)
+    self.Menu.Size = UDim2.new(1, 0, 0, 0)
+    self.Menu.Position = UDim2.new(0, 0, 1, 0)
+    self.Menu.Visible = false
+    local layout = Instance.new("UIListLayout", self.Menu)
+    layout.SortOrder = Enum.SortOrder.LayoutOrder
+    Theme:ApplyTo(self.Frame)
+    for _, option in pairs(options) do
+        local optionButton = Instance.new("TextButton", self.Menu)
+        optionButton.Size = UDim2.new(1, 0, 0, 30)
+        optionButton.Text = option
+        optionButton.MouseButton1Click:Connect(function()
+            self.Button.Text = option
+            self.Menu.Visible = false
+            onChange(option)
+        end)
+    end
+    self.Button.MouseButton1Click:Connect(function()
+        self.Menu.Visible = not self.Menu.Visible
+        self.Menu.Size = UDim2.new(1, 0, 0, #options * 30)
+    end)
+    return self
+end
+
+local TextBox = {}
+TextBox.__index = TextBox
+
+function TextBox.new(parent, placeholder, onChange)
+    local self = setmetatable({}, TextBox)
+    self.Frame = Instance.new("TextBox", parent)
+    self.Frame.Size = UDim2.new(1, 0, 0, 30)
+    self.Frame.PlaceholderText = placeholder
+    Theme:ApplyTo(self.Frame)
+    self.Frame.FocusLost:Connect(function(enterPressed)
+        if enterPressed then
+            onChange(self.Frame.Text)
+        end
+    end)
+    return self
+end
+
+local Keybind = {}
+Keybind.__index = Keybind
+
+function Keybind.new(parent, defaultKey, onChange)
+    local self = setmetatable({}, Keybind)
+    self.Frame = Instance.new("TextButton", parent)
+    self.Frame.Size = UDim2.new(1, 0, 0, 30)
+    self.Frame.Text = defaultKey or "None"
+    Theme:ApplyTo(self.Frame)
+    self.Frame.MouseButton1Click:Connect(function()
+        self.Frame.Text = "Press Key..."
+        local userInputService = game:GetService("UserInputService")
+        local connection
+        connection = userInputService.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.Keyboard then
+                self.Frame.Text = input.KeyCode.Name
+                onChange(input.KeyCode)
+                connection:Disconnect()
+            end
+        end)
+    end)
+    return self
+end
+
+local Slider = {}
+Slider.__index = Slider
+
+function Slider.new(parent, min, max, default, onChange)
+    local self = setmetatable({}, Slider)
+    self.Frame = Instance.new("Frame", parent)
+    self.Frame.Size = UDim2.new(1, 0, 0, 30)
+    self.SliderBar = Instance.new("TextButton", self.Frame)
+    self.SliderBar.Size = UDim2.new(0.8, 0, 0.5, 0)
+    self.SliderBar.Position = UDim2.new(0.1, 0, 0.25, 0)
+    self.ValueLabel = Instance.new("TextLabel", self.Frame)
+    self.ValueLabel.Size = UDim2.new(0.1, 0, 1, 0)
+    self.ValueLabel.Position = UDim2.new(0.9, 0, 0, 0)
+    self.Value = default or min
+    Theme:ApplyTo(self.Frame)
+    local function updateValue(x)
+        local newValue = min + (max - min) * (x / self.SliderBar.AbsoluteSize.X)
+        self.Value = math.clamp(math.floor(newValue), min, max)
+        self.ValueLabel.Text = tostring(self.Value)
+        onChange(self.Value)
+    end
+    self.SliderBar.MouseButton1Down:Connect(function(input)
+        local moveConnection
+        moveConnection = game:GetService("RunService").RenderStepped:Connect(function()
+            local relX = math.clamp(input.Position.X - self.SliderBar.AbsolutePosition.X, 0, self.SliderBar.AbsoluteSize.X)
+            updateValue(relX)
+        end)
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                moveConnection:Disconnect()
+            end
+        end)
+    end)
+    updateValue((default - min) / (max - min) * self.SliderBar.AbsoluteSize.X)
+    return self
+end
+
+local Label = {}
+Label.__index = Label
+
+function Label.new(parent, text)
+    local self = setmetatable({}, Label)
+    self.Frame = Instance.new("TextLabel", parent)
+    self.Frame.Size = UDim2.new(1, 0, 0, 30)
+    self.Frame.Text = text
+    Theme:ApplyTo(self.Frame)
     return self
 end
 
@@ -219,7 +347,7 @@ function RbxScriptHub.new()
     self.MainFrame.Active = true
     self.MainFrame.Draggable = true
     
-    self.Logo = Instance.new("TextButton", screenGui)
+    self.Logo = Instance.new("TextButton", screenGui) -- Menggunakan TextButton untuk klik
     self.Logo.Size = UDim2.new(0, 50, 0, 50)
     self.Logo.Position = UDim2.new(0.5, -25, 0, 0)
     self.Logo.Text = "RBH"

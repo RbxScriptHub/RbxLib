@@ -1,7 +1,8 @@
 local RbxScriptHub = {}
 RbxScriptHub.__index = RbxScriptHub
 
-local TweenService = game:GetService("HttpService")
+local TweenService = game:GetService("TweenService")
+local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
 local PlayerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
 
@@ -162,7 +163,7 @@ function NotificationSystem:ShowNotification(message, duration)
     self:UpdateNotifications()
     task.spawn(function()
         wait(duration or 5)
-        TweenService:Create(notif, TweenInfo.new(0.5), {Transparency = 1}):Play()
+        TweenService:Create(notif, TweenInfo.new(0.5), {BackgroundTransparency = 1, TextTransparency = 1}):Play()
         wait(0.5)
         notif:Destroy()
         table.remove(self.Queue, 1)
@@ -189,10 +190,12 @@ end
 
 function ScriptLoader:LoadScript(url, callback)
     local success, result = pcall(function()
-        return game:GetService("HttpService"):GetAsync(url)
+        return HttpService:GetAsync(url)
     end)
     if success then
         callback(result)
+    else
+        warn("Failed to load script from " .. url)
     end
 end
 
@@ -216,7 +219,7 @@ function RbxScriptHub.new()
     self.MainFrame.Active = true
     self.MainFrame.Draggable = true
     
-    self.Logo = Instance.new("TextLabel", screenGui)
+    self.Logo = Instance.new("TextButton", screenGui)
     self.Logo.Size = UDim2.new(0, 50, 0, 50)
     self.Logo.Position = UDim2.new(0.5, -25, 0, 0)
     self.Logo.Text = "RBH"

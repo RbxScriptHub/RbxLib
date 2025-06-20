@@ -1,431 +1,431 @@
+-- RbxScriptHub (RBH) - Modern UI Library for Roblox Script Hub
+-- Version: 1.0.0
+-- License: MIT
+-- GitHub: https://github.com/RbxScriptHub/RbxLib
+
 local RbxScriptHub = {}
-RbxScriptHub.__index = RbxScriptHub
-
-local TweenService = game:GetService("TweenService")
 local HttpService = game:GetService("HttpService")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
-local PlayerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
 
--- Theme Module
-local Theme = {
-    CurrentTheme = "DarkFuturistic",
-    Themes = {
-        DarkFuturistic = {
-            BackgroundColor = Color3.fromRGB(20, 20, 20),
-            TextColor = Color3.fromRGB(255, 255, 255),
-            AccentColor = Color3.fromRGB(0, 170, 255),
-            BorderColor = Color3.fromRGB(50, 50, 50)
-        },
-        LightModern = {
-            BackgroundColor = Color3.fromRGB(240, 240, 240),
-            TextColor = Color3.fromRGB(0, 0, 0),
-            AccentColor = Color3.fromRGB(0, 120, 215),
-            BorderColor = Color3.fromRGB(200, 200, 200)
-        }
+-- Theme Configuration
+local Themes = {
+    Dark = {
+        Primary = Color3.fromRGB(20, 20, 30),
+        Secondary = Color3.fromRGB(30, 30, 45),
+        Accent = Color3.fromRGB(0, 170, 255),
+        Text = Color3.fromRGB(255, 255, 255),
+        Hover = Color3.fromRGB(50, 50, 65),
+    },
+    Light = {
+        Primary = Color3.fromRGB(240, 240, 240),
+        Secondary = Color3.fromRGB(200, 200, 200),
+        Accent = Color3.fromRGB(0, 120, 200),
+        Text = Color3.fromRGB(0, 0, 0),
+        Hover = Color3.fromRGB(180, 180, 180),
     }
 }
 
-function Theme:ApplyTo(element)
-    if element:IsA("GuiObject") then
-        element.BackgroundColor3 = self.Themes[self.CurrentTheme].BackgroundColor
-        if element:IsA("TextLabel") or element:IsA("TextButton") or element:IsA("TextBox") then
-            element.TextColor3 = self.Themes[self.CurrentTheme].TextColor
-        end
-        if element:IsA("Frame") or element:IsA("TextButton") then
-            element.BorderColor3 = self.Themes[self.CurrentTheme].BorderColor
-        end
-    end
-    for _, child in pairs(element:GetChildren()) do
-        self:ApplyTo(child)
-    end
+local CurrentTheme = Themes.Dark
+local UIInstance = nil
+local Minimized = false
+local Tabs = {}
+local Notifications = {}
+local FavoriteScripts = {}
+local GameScripts = {}
+
+-- Utility Functions
+local function createTween(instance, properties, duration, easingStyle)
+    local tweenInfo = TweenInfo.new(duration, easingStyle or Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+    local tween = TweenService:Create(instance, tweenInfo, properties)
+    tween:Play()
+    return tween
 end
 
-function Theme:SetTheme(name)
-    if self.Themes[name] then
-        self.CurrentTheme = name
+-- Main UI Creation
+function RbxScriptHub:CreateUI()
+    local ScreenGui = Instance.new("ScreenGui")
+    ScreenGui.Name = "RbxScriptHub"
+    ScreenGui.ResetOnSpawn = false
+    ScreenGui.Parent = Players.LocalPlayer.PlayerGui
+    UIInstance = ScreenGui
+
+    -- Main Frame
+    local MainFrame = Instance.new("Frame")
+    MainFrame.Size = UDim2.new(0, 600, 0, 400)
+    MainFrame.Position = UDim2.new(0.5, -300, 0.5, -200)
+    MainFrame.BackgroundColor3 = CurrentTheme.Primary
+    MainFrame.BorderSizePixel = 0
+    MainFrame.ClipsDescendants = true
+    MainFrame.Parent = ScreenGui
+
+    local UICorner = Instance.new("UICorner")
+    UICorner.CornerRadius = UDim.new(0, 10)
+    UICorner.Parent = MainFrame
+
+    -- Drag Functionality
+    local dragging, dragStart, startPos
+    local function update(input)
+        local delta = input.Position - dragStart
+        MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
     end
-end
 
--- Component Classes
-local Toggle = {}
-Toggle.__index = Toggle
-
-function Toggle.new(parent, text, defaultValue, onChange)
-    local self = setmetatable({}, Toggle)
-    self.Frame = Instance.new("Frame", parent)
-    self.Frame.Size = UDim2.new(1, 0, 0, 30)
-    self.Label = Instance.new("TextLabel", self.Frame)
-    self.Label.Size = UDim2.new(0.7, 0, 1, 0)
-    self.Label.Text = text
-    self.ToggleButton = Instance.new("TextButton", self.Frame)
-    self.ToggleButton.Size = UDim2.new(0.2, 0, 0.8, 0)
-    self.ToggleButton.Position = UDim2.new(0.75, 0, 0.1, 0)
-    self.ToggleButton.Text = defaultValue and "ON" or "OFF"
-    self.Value = defaultValue
-    Theme:ApplyTo(self.Frame)
-    self.ToggleButton.MouseButton1Click:Connect(function()
-        self.Value = not self.Value
-        self.ToggleButton.Text = self.Value and "ON" or "OFF"
-        onChange(self.Value)
-    end)
-    return self
-end
-
-local Button = {}
-Button.__index = Button
-
-function Button.new(parent, text, onClick)
-    local self = setmetatable({}, Button)
-    self.Frame = Instance.new("TextButton", parent) -- Pastikan ini TextButton
-    self.Frame.Size = UDim2.new(1, 0, 0, 30)
-    self.Frame.Text = text
-    Theme:ApplyTo(self.Frame)
-    if self.Frame:IsA("TextButton") then
-        self.Frame.MouseButton1Click:Connect(onClick)
-    else
-        warn("Button harus berupa TextButton!")
-    end
-    return self
-end
-
-local Dropdown = {}
-Dropdown.__index = Dropdown
-
-function Dropdown.new(parent, options, default, onChange)
-    local self = setmetatable({}, Dropdown)
-    self.Frame = Instance.new("Frame", parent)
-    self.Frame.Size = UDim2.new(1, 0, 0, 30)
-    self.Button = Instance.new("TextButton", self.Frame)
-    self.Button.Size = UDim2.new(1, 0, 1, 0)
-    self.Button.Text = default or options[1]
-    self.Menu = Instance.new("Frame", self.Frame)
-    self.Menu.Size = UDim2.new(1, 0, 0, 0)
-    self.Menu.Position = UDim2.new(0, 0, 1, 0)
-    self.Menu.Visible = false
-    local layout = Instance.new("UIListLayout", self.Menu)
-    layout.SortOrder = Enum.SortOrder.LayoutOrder
-    Theme:ApplyTo(self.Frame)
-    for _, option in pairs(options) do
-        local optionButton = Instance.new("TextButton", self.Menu)
-        optionButton.Size = UDim2.new(1, 0, 0, 30)
-        optionButton.Text = option
-        optionButton.MouseButton1Click:Connect(function()
-            self.Button.Text = option
-            self.Menu.Visible = false
-            onChange(option)
-        end)
-    end
-    self.Button.MouseButton1Click:Connect(function()
-        self.Menu.Visible = not self.Menu.Visible
-        self.Menu.Size = UDim2.new(1, 0, 0, #options * 30)
-    end)
-    return self
-end
-
-local TextBox = {}
-TextBox.__index = TextBox
-
-function TextBox.new(parent, placeholder, onChange)
-    local self = setmetatable({}, TextBox)
-    self.Frame = Instance.new("TextBox", parent)
-    self.Frame.Size = UDim2.new(1, 0, 0, 30)
-    self.Frame.PlaceholderText = placeholder
-    Theme:ApplyTo(self.Frame)
-    self.Frame.FocusLost:Connect(function(enterPressed)
-        if enterPressed then
-            onChange(self.Frame.Text)
+    MainFrame.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = true
+            dragStart = input.Position
+            startPos = MainFrame.Position
         end
     end)
-    return self
-end
 
-local Keybind = {}
-Keybind.__index = Keybind
-
-function Keybind.new(parent, defaultKey, onChange)
-    local self = setmetatable({}, Keybind)
-    self.Frame = Instance.new("TextButton", parent)
-    self.Frame.Size = UDim2.new(1, 0, 0, 30)
-    self.Frame.Text = defaultKey or "None"
-    Theme:ApplyTo(self.Frame)
-    self.Frame.MouseButton1Click:Connect(function()
-        self.Frame.Text = "Press Key..."
-        local userInputService = game:GetService("UserInputService")
-        local connection
-        connection = userInputService.InputBegan:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.Keyboard then
-                self.Frame.Text = input.KeyCode.Name
-                onChange(input.KeyCode)
-                connection:Disconnect()
-            end
-        end)
+    MainFrame.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = false
+        end
     end)
-    return self
-end
 
-local Slider = {}
-Slider.__index = Slider
-
-function Slider.new(parent, min, max, default, onChange)
-    local self = setmetatable({}, Slider)
-    self.Frame = Instance.new("Frame", parent)
-    self.Frame.Size = UDim2.new(1, 0, 0, 30)
-    self.SliderBar = Instance.new("TextButton", self.Frame)
-    self.SliderBar.Size = UDim2.new(0.8, 0, 0.5, 0)
-    self.SliderBar.Position = UDim2.new(0.1, 0, 0.25, 0)
-    self.ValueLabel = Instance.new("TextLabel", self.Frame)
-    self.ValueLabel.Size = UDim2.new(0.1, 0, 1, 0)
-    self.ValueLabel.Position = UDim2.new(0.9, 0, 0, 0)
-    self.Value = default or min
-    Theme:ApplyTo(self.Frame)
-    local function updateValue(x)
-        local newValue = min + (max - min) * (x / self.SliderBar.AbsoluteSize.X)
-        self.Value = math.clamp(math.floor(newValue), min, max)
-        self.ValueLabel.Text = tostring(self.Value)
-        onChange(self.Value)
-    end
-    self.SliderBar.MouseButton1Down:Connect(function(input)
-        local moveConnection
-        moveConnection = game:GetService("RunService").RenderStepped:Connect(function()
-            local relX = math.clamp(input.Position.X - self.SliderBar.AbsolutePosition.X, 0, self.SliderBar.AbsoluteSize.X)
-            updateValue(relX)
-        end)
-        input.Changed:Connect(function()
-            if input.UserInputState == Enum.UserInputState.End then
-                moveConnection:Disconnect()
-            end
-        end)
+    UserInputService.InputChanged:Connect(function(input)
+        if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+            update(input)
+        end
     end)
-    updateValue((default - min) / (max - min) * self.SliderBar.AbsoluteSize.X)
-    return self
-end
 
-local Label = {}
-Label.__index = Label
+    -- Minimize Button
+    local MinimizeButton = Instance.new("TextButton")
+    MinimizeButton.Size = UDim2.new(0, 30, 0, 30)
+    MinimizeButton.Position = UDim2.new(1, -40, 0, 10)
+    MinimizeButton.BackgroundColor3 = CurrentTheme.Accent
+    MinimizeButton.Text = "-"
+    MinimizeButton.TextColor3 = CurrentTheme.Text
+    MinimizeButton.Parent = MainFrame
 
-function Label.new(parent, text)
-    local self = setmetatable({}, Label)
-    self.Frame = Instance.new("TextLabel", parent)
-    self.Frame.Size = UDim2.new(1, 0, 0, 30)
-    self.Frame.Text = text
-    Theme:ApplyTo(self.Frame)
-    return self
+    local MinimizeCorner = Instance.new("UICorner")
+    MinimizeCorner.CornerRadius = UDim.new(0, 5)
+    MinimizeCorner.Parent = MinimizeButton
+
+    -- Minimize Logo
+    local MinimizeLogo = Instance.new("TextLabel")
+    MinimizeLogo.Size = UDim2.new(0, 50, 0, 50)
+    MinimizeLogo.Position = UDim2.new(0.5, -25, 0, 10)
+    MinimizeLogo.BackgroundTransparency = 1
+    MinimizeLogo.Text = "RBH"
+    MinimizeLogo.TextColor3 = CurrentTheme.Accent
+    MinimizeLogo.TextScaled = true
+    MinimizeLogo.Visible = false
+    MinimizeLogo.Parent = ScreenGui
+
+    -- Sidebar
+    local Sidebar = Instance.new("Frame")
+    Sidebar.Size = UDim2.new(0, 150, 1, -40)
+    Sidebar.Position = UDim2.new(0, 0, 0, 40)
+    Sidebar.BackgroundColor3 = CurrentTheme.Secondary
+    Sidebar.Parent = MainFrame
+
+    local SidebarList = Instance.new("UIListLayout")
+    SidebarList.Padding = UDim.new(0, 5)
+    SidebarList.Parent = Sidebar
+
+    -- Content Area
+    local Content = Instance.new("Frame")
+    Content.Size = UDim2.new(1, -150, 1, -40)
+    Content.Position = UDim2.new(0, 150, 0, 40)
+    Content.BackgroundTransparency = 1
+    Content.Parent = MainFrame
+
+    -- Minimize/Restore Logic
+    MinimizeButton.MouseButton1Click:Connect(function()
+        Minimized = not Minimized
+        if Minimized then
+            createTween(MainFrame, {Size = UDim2.new(0, 0, 0, 0)}, 0.3)
+            createTween(MainFrame, {BackgroundTransparency = 1}, 0.3)
+            MinimizeLogo.Visible = true
+            createTween(MinimizeLogo, {TextTransparency = 0}, 0.3)
+        else
+            createTween(MainFrame, {Size = UDim2.new(0, 600, 0, 400)}, 0.3)
+            createTween(MainFrame, {BackgroundTransparency = 0}, 0.3)
+            MinimizeLogo.Visible = false
+            createTween(MinimizeLogo, {TextTransparency = 1}, 0.3)
+        end
+    end)
+
+    MinimizeLogo.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 and Minimized then
+            Minimized = false
+            createTween(MainFrame, {Size = UDim2.new(0, 600, 0, 400)}, 0.3)
+            createTween(MainFrame, {BackgroundTransparency = 0}, 0.3)
+            MinimizeLogo.Visible = false
+            createTween(MinimizeLogo, {TextTransparency = 1}, 0.3)
+        end
+    end)
+
+    -- Notification System
+    local NotificationContainer = Instance.new("Frame")
+    NotificationContainer.Size = UDim2.new(0, 300, 1, 0)
+    NotificationContainer.Position = UDim2.new(1, -310, 0, 0)
+    NotificationContainer.BackgroundTransparency = 1
+    NotificationContainer.Parent = ScreenGui
+
+    local NotificationList = Instance.new("UIListLayout")
+    NotificationList.SortOrder = Enum.SortOrder.LayoutOrder
+    NotificationList.VerticalAlignment = Enum.VerticalAlignment.Bottom
+    NotificationList.Padding = UDim.new(0, 5)
+    NotificationList.Parent = NotificationContainer
+
+    -- Store UI components
+    self.MainFrame = MainFrame
+    self.Sidebar = Sidebar
+    self.Content = Content
+    self.NotificationContainer = NotificationContainer
 end
 
 -- Tab System
-local TabSystem = {}
-TabSystem.__index = TabSystem
+function RbxScriptHub:AddTab(name)
+    local TabButton = Instance.new("TextButton")
+    TabButton.Size = UDim2.new(1, -10, 0, 30)
+    TabButton.Position = UDim2.new(0, 5, 0, 5)
+    TabButton.BackgroundColor3 = CurrentTheme.Secondary
+    TabButton.Text = name
+    TabButton.TextColor3 = CurrentTheme.Text
+    TabButton.Parent = self.Sidebar
 
-function TabSystem.new(parent)
-    local self = setmetatable({}, TabSystem)
-    self.Tabs = {}
-    self.TabBar = Instance.new("Frame", parent)
-    self.TabBar.Size = UDim2.new(1, 0, 0, 40)
-    self.ContentArea = Instance.new("Frame", parent)
-    self.ContentArea.Size = UDim2.new(1, 0, 1, -40)
-    self.ContentArea.Position = UDim2.new(0, 0, 0, 40)
-    local layout = Instance.new("UIListLayout", self.TabBar)
-    layout.FillDirection = Enum.FillDirection.Horizontal
-    Theme:ApplyTo(self.TabBar)
-    Theme:ApplyTo(self.ContentArea)
-    return self
-end
+    local TabCorner = Instance.new("UICorner")
+    TabCorner.CornerRadius = UDim.new(0, 5)
+    TabCorner.Parent = TabButton
 
-function TabSystem:AddTab(name)
-    local tab = {}
-    tab.Name = name
-    tab.Button = Instance.new("TextButton", self.TabBar)
-    tab.Button.Size = UDim2.new(0, 100, 1, 0)
-    tab.Button.Text = name
-    tab.Content = Instance.new("ScrollingFrame", self.ContentArea)
-    tab.Content.Size = UDim2.new(1, 0, 1, 0)
-    tab.Content.CanvasSize = UDim2.new(0, 0, 0, 0)
-    tab.Content.Visible = false
-    local layout = Instance.new("UIListLayout", tab.Content)
-    layout.SortOrder = Enum.SortOrder.LayoutOrder
-    Theme:ApplyTo(tab.Button)
-    Theme:ApplyTo(tab.Content)
-    tab.Button.MouseButton1Click:Connect(function()
-        self:SelectTab(tab)
+    local TabContent = Instance.new("Frame")
+    TabContent.Size = UDim2.new(1, 0, 1, 0)
+    TabContent.BackgroundTransparency = 1
+    TabContent.Visible = false
+    TabContent.Parent = self.Content
+
+    local TabList = Instance.new("UIListLayout")
+    TabList.Padding = UDim.new(0, 5)
+    TabList.Parent = TabContent
+
+    TabButton.MouseButton1Click:Connect(function()
+        for _, tab in pairs(Tabs) do
+            tab.Content.Visible = false
+            createTween(tab.Button, {BackgroundColor3 = CurrentTheme.Secondary}, 0.2)
+        end
+        TabContent.Visible = true
+        createTween(TabButton, {BackgroundColor3 = CurrentTheme.Accent}, 0.2)
     end)
-    table.insert(self.Tabs, tab)
-    if #self.Tabs == 1 then
-        self:SelectTab(tab)
-    end
-    return tab.Content
+
+    TabButton.MouseEnter:Connect(function()
+        if not TabContent.Visible then
+            createTween(TabButton, {BackgroundColor3 = CurrentTheme.Hover}, 0.2)
+        end
+    end)
+
+    TabButton.MouseLeave:Connect(function()
+        if not TabContent.Visible then
+            createTween(TabButton, {BackgroundColor3 = CurrentTheme.Secondary}, 0.2)
+        end
+    end)
+
+    table.insert(Tabs, {Button = TabButton, Content = TabContent, Name = name})
+    return TabContent
 end
 
-function TabSystem:SelectTab(tab)
-    if self.CurrentTab then
-        TweenService:Create(self.CurrentTab.Content, TweenInfo.new(0.3), {Position = UDim2.new(-1, 0, 0, 0)}):Play()
-        self.CurrentTab.Content.Visible = false
+-- UI Components
+function RbxScriptHub:CreateButton(tab, text, callback)
+    local Button = Instance.new("TextButton")
+    Button.Size = UDim2.new(1, -10, 0, 30)
+    Button.BackgroundColor3 = CurrentTheme.Accent
+    Button.Text = text
+    Button.TextColor3 = CurrentTheme.Text
+    Button.Parent = tab
+
+    local ButtonCorner = Instance.new("UICorner")
+    ButtonCorner.CornerRadius = UDim.new(0, 5)
+    ButtonCorner.Parent = Button
+
+    Button.MouseButton1Click:Connect(function()
+        createTween(Button, {BackgroundColor3 = CurrentTheme.Hover}, 0.1)
+        callback()
+        wait(0.1)
+        createTween(Button, {BackgroundColor3 = CurrentTheme.Accent}, 0.1)
+    end)
+
+    Button.MouseEnter:Connect(function()
+        createTween(Button, {BackgroundColor3 = CurrentTheme.Hover}, 0.2)
+    end)
+
+    Button.MouseLeave:Connect(function()
+        createTween(Button, {BackgroundColor3 = CurrentTheme.Accent}, 0.2)
+    end)
+end
+
+function RbxScriptHub:CreateToggle(tab, text, default, callback)
+    local ToggleFrame = Instance.new("Frame")
+    ToggleFrame.Size = UDim2.new(1, -10, 0, 30)
+    ToggleFrame.BackgroundTransparency = 1
+    ToggleFrame.Parent = tab
+
+    local ToggleLabel = Instance.new("TextLabel")
+    ToggleLabel.Size = UDim2.new(0.7, 0, 1, 0)
+    ToggleLabel.BackgroundTransparency = 1
+    ToggleLabel.Text = text
+    ToggleLabel.TextColor3 = CurrentTheme.Text
+    ToggleLabel.TextXAlignment = Enum.TextXAlignment.Left
+    ToggleLabel.Parent = ToggleFrame
+
+    local ToggleButton = Instance.new("TextButton")
+    ToggleButton.Size = UDim2.new(0, 50, 0, 20)
+    ToggleButton.Position = UDim2.new(1, -50, 0.5, -10)
+    ToggleButton.BackgroundColor3 = default and CurrentTheme.Accent or CurrentTheme.Secondary
+    ToggleButton.Text = ""
+    ToggleButton.Parent = ToggleFrame
+
+    local ToggleCorner = Instance.new("UICorner")
+    ToggleCorner.CornerRadius = UDim.new(0, 10)
+    ToggleCorner.Parent = ToggleButton
+
+    local state = default
+    ToggleButton.MouseButton1Click:Connect(function()
+        state = not state
+        createTween(ToggleButton, {BackgroundColor3 = state and CurrentTheme.Accent or CurrentTheme.Secondary}, 0.2)
+        callback(state)
+    end)
+end
+
+function RbxScriptHub:CreateDropdown(tab, text, options, callback)
+    local DropdownFrame = Instance.new("Frame")
+    DropdownFrame.Size = UDim2.new(1, -10, 0, 30)
+    DropdownFrame.BackgroundColor3 = CurrentTheme.Secondary
+    DropdownFrame.Parent = tab
+
+    local DropdownButton = Instance.new("TextButton")
+    DropdownButton.Size = UDim2.new(1, 0, 1, 0)
+    DropdownButton.Text = text
+    DropdownButton.TextColor3 = CurrentTheme.Text
+    DropdownButton.BackgroundTransparency = 1
+    DropdownButton.Parent = DropdownFrame
+
+    local DropdownList = Instance.new("Frame")
+    DropdownList.Size = UDim2.new(1, 0, 0, #options * 30)
+    DropdownList.Position = UDim2.new(0, 0, 1, 5)
+    DropdownList.BackgroundColor3 = CurrentTheme.Secondary
+    DropdownList.Visible = false
+    DropdownList.Parent = DropdownFrame
+
+    local ListLayout = Instance.new("UIListLayout")
+    ListLayout.Parent = DropdownList
+
+    for i, option in ipairs(options) do
+        local OptionButton = Instance.new("TextButton")
+        OptionButton.Size = UDim2.new(1, 0, 0, 30)
+        OptionButton.Text = option
+        OptionButton.TextColor3 = CurrentTheme.Text
+        OptionButton.BackgroundColor3 = CurrentTheme.Secondary
+        OptionButton.Parent = DropdownList
+
+        OptionButton.MouseButton1Click:Connect(function()
+            DropdownButton.Text = option
+            DropdownList.Visible = false
+            callback(option)
+        end)
+
+        OptionButton.MouseEnter:Connect(function()
+            createTween(OptionButton, {BackgroundColor3 = CurrentTheme.Hover}, 0.2)
+        end)
+
+        OptionButton.MouseLeave:Connect(function()
+            createTween(OptionButton, {BackgroundColor3 = CurrentTheme.Secondary}, 0.2)
+        end)
     end
-    self.CurrentTab = tab
-    tab.Content.Position = UDim2.new(1, 0, 0, 0)
-    tab.Content.Visible = true
-    TweenService:Create(tab.Content, TweenInfo.new(0.3), {Position = UDim2.new(0, 0, 0, 0)}):Play()
+
+    DropdownButton.MouseButton1Click:Connect(function()
+        DropdownList.Visible = not DropdownList.Visible
+        createTween(DropdownList, {Position = DropdownList.Visible and UDim2.new(0, 0, 1, 5) or UDim2.new(0, 0, 1, 0)}, 0.2)
+    end)
 end
 
 -- Notification System
-local NotificationSystem = {}
-NotificationSystem.__index = NotificationSystem
+function RbxScriptHub:CreateNotification(text, duration)
+    local Notification = Instance.new("Frame")
+    Notification.Size = UDim2.new(0, 250, 0, 60)
+    Notification.BackgroundColor3 = CurrentTheme.Primary
+    Notification.BackgroundTransparency = 0.2
+    Notification.Parent = self.NotificationContainer
 
-function NotificationSystem.new(parent)
-    local self = setmetatable({}, NotificationSystem)
-    self.Queue = {}
-    self.Container = Instance.new("Frame", parent)
-    self.Container.Size = UDim2.new(0, 200, 1, 0)
-    self.Container.Position = UDim2.new(1, -200, 0, 0)
-    self.Container.BackgroundTransparency = 1
-    return self
-end
+    local NotificationCorner = Instance.new("UICorner")
+    NotificationCorner.CornerRadius = UDim.new(0, 5)
+    NotificationCorner.Parent = Notification
 
-function NotificationSystem:ShowNotification(message, duration)
-    local notif = Instance.new("TextLabel", self.Container)
-    notif.Size = UDim2.new(1, 0, 0, 50)
-    notif.Position = UDim2.new(0, 0, 1, 0)
-    notif.Text = message
-    notif.BackgroundTransparency = 0.5
-    Theme:ApplyTo(notif)
-    table.insert(self.Queue, notif)
-    self:UpdateNotifications()
-    task.spawn(function()
-        wait(duration or 5)
-        TweenService:Create(notif, TweenInfo.new(0.5), {BackgroundTransparency = 1, TextTransparency = 1}):Play()
-        wait(0.5)
-        notif:Destroy()
-        table.remove(self.Queue, 1)
-        self:UpdateNotifications()
-    end)
-end
+    local NotificationText = Instance.new("TextLabel")
+    NotificationText.Size = UDim2.new(1, -10, 1, -10)
+    NotificationText.Position = UDim2.new(0, 5, 0, 5)
+    NotificationText.BackgroundTransparency = 1
+    NotificationText.Text = text
+    NotificationText.TextColor3 = CurrentTheme.Text
+    NotificationText.TextWrapped = true
+    NotificationText.Parent = Notification
 
-function NotificationSystem:UpdateNotifications()
-    for i, notif in ipairs(self.Queue) do
-        TweenService:Create(notif, TweenInfo.new(0.3), {Position = UDim2.new(0, 0, 1, -50 * i)}):Play()
+    Notification.Position = UDim2.new(1, 260, 1, -70)
+    createTween(Notification, {Position = UDim2.new(1, -260, 1, -70)}, 0.3)
+
+    local function destroyNotification()
+        createTween(Notification, {Position = UDim2.new(1, 260, 1, -70)}, 0.3)
+        wait(0.3)
+        Notification:Destroy()
     end
+
+    Notification.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            destroyNotification()
+        end
+    end)
+
+    if duration then
+        spawn(function()
+            wait(duration)
+            if Notification.Parent then
+                destroyNotification()
+            end
+        end)
+    end
+
+    table.insert(Notifications, Notification)
+end
+
+-- Theme Switching
+function RbxScriptHub:SwitchTheme(themeName)
+    CurrentTheme = Themes[themeName] or Themes.Dark
+    self.MainFrame.BackgroundColor3 = CurrentTheme.Primary
+    for _, tab in pairs(Tabs) do
+        tab.Button.BackgroundColor3 = tab.Content.Visible and CurrentTheme.Accent or CurrentTheme.Secondary
+    end
+    -- Update other components as needed
 end
 
 -- Script Loader
-local ScriptLoader = {}
-ScriptLoader.__index = ScriptLoader
-
-function ScriptLoader.new()
-    local self = setmetatable({}, ScriptLoader)
-    self.Favorites = {}
-    self.Scripts = {}
-    return self
-end
-
-function ScriptLoader:LoadScript(url, callback)
+function RbxScriptHub:LoadScript(url)
     local success, result = pcall(function()
-        return HttpService:GetAsync(url)
+        return loadstring(game:HttpGet(url))()
     end)
     if success then
-        callback(result)
+        self:CreateNotification("Script loaded successfully!", 3)
     else
-        warn("Failed to load script from " .. url)
+        self:CreateNotification("Failed to load script: " .. tostring(result), 5)
     end
 end
 
-function ScriptLoader:AddFavorite(name, url)
-    table.insert(self.Favorites, {Name = name, Url = url})
-end
-
-function ScriptLoader:RegisterScript(name, url, placeIds)
-    table.insert(self.Scripts, {Name = name, Url = url, PlaceIds = placeIds})
-end
-
--- Main Library
-function RbxScriptHub.new()
-    local self = setmetatable({}, RbxScriptHub)
-    
-    -- Main UI Setup
-    local screenGui = Instance.new("ScreenGui", PlayerGui)
-    self.MainFrame = Instance.new("Frame", screenGui)
-    self.MainFrame.Size = UDim2.new(0.5, 0, 0.5, 0)
-    self.MainFrame.Position = UDim2.new(0.25, 0, 0.25, 0)
-    self.MainFrame.Active = true
-    self.MainFrame.Draggable = true
-    
-    self.Logo = Instance.new("TextButton", screenGui) -- Menggunakan TextButton untuk klik
-    self.Logo.Size = UDim2.new(0, 50, 0, 50)
-    self.Logo.Position = UDim2.new(0.5, -25, 0, 0)
-    self.Logo.Text = "RBH"
-    self.Logo.Font = Enum.Font.SourceSansBold
-    self.Logo.TextSize = 20
-    self.Logo.Visible = false
-    
-    -- Systems
-    self.TabSystem = TabSystem.new(self.MainFrame)
-    self.NotificationSystem = NotificationSystem.new(screenGui)
-    self.ScriptLoader = ScriptLoader.new()
-    
-    -- Theme Application
-    Theme:ApplyTo(self.MainFrame)
-    Theme:ApplyTo(self.Logo)
-    
-    -- Minimize/Restore
-    local minimized = false
-    self.Logo.MouseButton1Click:Connect(function()
-        if minimized then
-            self:Restore()
-            minimized = false
-        end
-    end)
-    
-    -- Game Detection
+-- Game Detection
+function RbxScriptHub:DetectGame()
     local placeId = game.PlaceId
-    for _, script in pairs(self.ScriptLoader.Scripts) do
-        if table.find(script.PlaceIds, placeId) then
-            local tab = self:AddTab(script.Name)
-            Button.new(tab, "Load " .. script.Name, function()
-                self.ScriptLoader:LoadScript(script.Url, function(content)
-                    loadstring(content)()
-                end)
-            end)
-        end
+    self:CreateNotification("Detected Game: " .. placeId, 3)
+    -- Implement script fetching logic based on placeId
+end
+
+-- Keyboard/Controller Support
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    if input.KeyCode == Enum.KeyCode.F6 then
+        RbxScriptHub.MainFrame.Visible = not RbxScriptHub.MainFrame.Visible
     end
-    
-    return self
-end
-
-function RbxScriptHub:AddTab(name)
-    return self.TabSystem:AddTab(name)
-end
-
-function RbxScriptHub:Notify(message, duration)
-    self.NotificationSystem:ShowNotification(message, duration)
-end
-
-function RbxScriptHub:Minimize()
-    TweenService:Create(self.MainFrame, TweenInfo.new(0.5), {Size = UDim2.new(0, 0, 0, 0)}):Play()
-    wait(0.5)
-    self.MainFrame.Visible = false
-    self.Logo.Visible = true
-end
-
-function RbxScriptHub:Restore()
-    self.MainFrame.Visible = true
-    TweenService:Create(self.MainFrame, TweenInfo.new(0.5), {Size = UDim2.new(0.5, 0, 0.5, 0)}):Play()
-    self.Logo.Visible = false
-end
-
-function RbxScriptHub:SetTheme(name)
-    Theme:SetTheme(name)
-    Theme:ApplyTo(self.MainFrame)
-    Theme:ApplyTo(self.Logo)
-end
-
-function RbxScriptHub:LoadScript(url, callback)
-    self.ScriptLoader:LoadScript(url, callback)
-end
-
-function RbxScriptHub:AddFavoriteScript(name, url)
-    self.ScriptLoader:AddFavorite(name, url)
-end
-
-function RbxScriptHub:RegisterScript(name, url, placeIds)
-    self.ScriptLoader:RegisterScript(name, url, placeIds)
-end
+end)
 
 return RbxScriptHub

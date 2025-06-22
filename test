@@ -1,259 +1,927 @@
--- RbxScriptHub UI Library
-local RbxScriptHub = {}
-RbxScriptHub.__index = RbxScriptHub
+-- ScriptHubUI Library
+-- Version 1.0
+-- By [Your Name]
 
--- Creating a Window
-function RbxScriptHub:CreateWindow(title)
-    local screenGui = Instance.new("ScreenGui")
-    local mainFrame = Instance.new("Frame")
-    mainFrame.Size = UDim2.new(0, 400, 0, 300)
-    mainFrame.Position = UDim2.new(0.5, -200, 0.5, -150)
-    mainFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-    mainFrame.BorderSizePixel = 2
-    mainFrame.BorderColor3 = Color3.fromRGB(255, 255, 255)
+local ScriptHubUI = {}
+ScriptHubUI.__index = ScriptHubUI
 
-    local titleBar = Instance.new("TextLabel")
-    titleBar.Size = UDim2.new(1, 0, 0, 30)
-    titleBar.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-    titleBar.Text = title
-    titleBar.TextColor3 = Color3.fromRGB(0, 191, 255)
-    titleBar.Parent = mainFrame
+-- Colors
+local theme = {
+    background = Color3.fromRGB(30, 30, 40),
+    sidebar = Color3.fromRGB(25, 25, 35),
+    header = Color3.fromRGB(45, 45, 55),
+    tabDefault = Color3.fromRGB(35, 35, 45),
+    tabSelected = Color3.fromRGB(50, 120, 220),
+    elementBackground = Color3.fromRGB(40, 40, 50),
+    elementHover = Color3.fromRGB(55, 55, 65),
+    accent = Color3.fromRGB(50, 120, 220),
+    text = Color3.fromRGB(220, 220, 220),
+    success = Color3.fromRGB(80, 180, 80),
+    warning = Color3.fromRGB(220, 170, 50),
+    error = Color3.fromRGB(220, 80, 80)
+}
 
-    local closeButton = Instance.new("TextButton")
-    closeButton.Size = UDim2.new(0, 20, 0, 20)
-    closeButton.Position = UDim2.new(1, -25, 0, 5)
-    closeButton.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
-    closeButton.Text = "X"
-    closeButton.Parent = titleBar
-
-    local minButton = Instance.new("TextButton")
-    minButton.Size = UDim2.new(0, 20, 0, 20)
-    minButton.Position = UDim2.new(1, -50, 0, 5)
-    minButton.BackgroundColor3 = Color3.fromRGB(255, 255, 0)
-    minButton.Text = "_"
-    minButton.Parent = titleBar
-
-    local navTab = Instance.new("Frame")
-    navTab.Size = UDim2.new(0, 100, 1, -30)
-    navTab.Position = UDim2.new(0, 0, 0, 30)
-    navTab.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-    navTab.Parent = mainFrame
-
-    local contentFrame = Instance.new("Frame")
-    contentFrame.Size = UDim2.new(1, -100, 1, -30)
-    contentFrame.Position = UDim2.new(0, 100, 0, 30)
-    contentFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-    contentFrame.Parent = mainFrame
-
-    local scrollBar = Instance.new("ScrollingFrame")
-    scrollBar.Size = UDim2.new(1, -20, 1, -10)
-    scrollBar.Position = UDim2.new(0, 0, 0, 5)
-    scrollBar.CanvasSize = UDim2.new(0, 0, 2, 0)
-    scrollBar.BackgroundTransparency = 1
-    scrollBar.Parent = contentFrame
-
-    screenGui.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
-    return {MainFrame = mainFrame, NavTab = navTab, Content = scrollBar}
+-- Utility functions
+local function create(class, props)
+    local instance = Instance.new(class)
+    for prop, value in pairs(props) do
+        if prop == "Parent" then
+            instance.Parent = value
+        else
+            instance[prop] = value
+        end
+    end
+    return instance
 end
 
--- Creating a Tab
-function RbxScriptHub:CreateTab(window, tabName)
-    local tabButton = Instance.new("TextButton")
-    tabButton.Size = UDim2.new(1, 0, 0, 30)
-    tabButton.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-    tabButton.Text = tabName
-    tabButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-    tabButton.Parent = window.NavTab
-    return tabButton
+local function createTextLabel(props)
+    return create("TextLabel", {
+        BackgroundTransparency = 1,
+        Font = Enum.Font.Gotham,
+        TextColor3 = theme.text,
+        TextSize = 14,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        TextYAlignment = Enum.TextYAlignment.Center,
+        Size = UDim2.new(1, 0, 0, 20),
+        TextTruncate = Enum.TextTruncate.AtEnd,
+        RichText = true,
+        ClipsDescendants = true,
+        Parent = props.Parent
+    })
 end
 
--- Creating a Section
-function RbxScriptHub:CreateSection(content, sectionName)
-    local section = Instance.new("Frame")
-    section.Size = UDim2.new(1, -20, 0, 50)
-    section.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-    section.BorderSizePixel = 0
-    section.Parent = content
+-- Main Window
+function ScriptHubUI.CreateWindow(options)
+    options = options or {}
+    local title = options.Title or "Script Hub"
+    local size = options.Size or Vector2.new(800, 500)
+    local position = options.Position or UDim2.new(0.5, -size.X/2, 0.5, -size.Y/2)
+    
+    local window = {}
+    setmetatable(window, ScriptHubUI)
+    
+    -- Create main screen GUI
+    window.gui = create("ScreenGui", {
+        Name = "ScriptHubUI",
+        DisplayOrder = 10,
+        Parent = options.Parent or game:GetService("CoreGui")
+    })
+    
+    -- Main container
+    window.container = create("Frame", {
+        Name = "Container",
+        BackgroundColor3 = theme.background,
+        BorderSizePixel = 0,
+        Position = position,
+        Size = UDim2.new(0, size.X, 0, size.Y),
+        Parent = window.gui
+    })
+    
+    -- Header
+    window.header = create("Frame", {
+        Name = "Header",
+        BackgroundColor3 = theme.header,
+        BorderSizePixel = 0,
+        Size = UDim2.new(1, 0, 0, 40),
+        Parent = window.container
+    })
+    
+    create("TextLabel", {
+        Name = "Title",
+        Text = title,
+        Font = Enum.Font.GothamBold,
+        TextColor3 = theme.text,
+        TextSize = 18,
+        BackgroundTransparency = 1,
+        Position = UDim2.new(0, 15, 0, 0),
+        Size = UDim2.new(0, 200, 1, 0),
+        Parent = window.header
+    })
+    
+    -- Sidebar (tab navigation)
+    window.sidebar = create("Frame", {
+        Name = "Sidebar",
+        BackgroundColor3 = theme.sidebar,
+        BorderSizePixel = 0,
+        Position = UDim2.new(0, 0, 0, 40),
+        Size = UDim2.new(0, 160, 1, -40),
+        Parent = window.container
+    })
+    
+    create("UIListLayout", {
+        Name = "TabListLayout",
+        SortOrder = Enum.SortOrder.LayoutOrder,
+        Padding = UDim.new(0, 5),
+        Parent = window.sidebar
+    })
+    
+    -- Content area
+    window.content = create("ScrollingFrame", {
+        Name = "Content",
+        BackgroundTransparency = 1,
+        Position = UDim2.new(0, 160, 0, 40),
+        Size = UDim2.new(1, -160, 1, -40),
+        ScrollBarThickness = 6,
+        CanvasSize = UDim2.new(0, 0, 0, 0),
+        Parent = window.container
+    })
+    
+    create("UIListLayout", {
+        Name = "SectionListLayout",
+        SortOrder = Enum.SortOrder.LayoutOrder,
+        Padding = UDim.new(0, 15),
+        Parent = window.content
+    })
+    
+    create("UIPadding", {
+        Name = "ContentPadding",
+        PaddingTop = UDim.new(0, 15),
+        PaddingLeft = UDim.new(0, 15),
+        PaddingRight = UDim.new(0, 15),
+        Parent = window.content
+    })
+    
+    window.tabs = {}
+    window.currentTab = nil
+    
+    -- Notification container
+    window.notificationContainer = create("Frame", {
+        Name = "Notifications",
+        BackgroundTransparency = 1,
+        Position = UDim2.new(1, -300, 0, 10),
+        Size = UDim2.new(0, 290, 1, 0),
+        Parent = window.gui
+    })
+    
+    create("UIListLayout", {
+        Name = "NotificationListLayout",
+        SortOrder = Enum.SortOrder.LayoutOrder,
+        Padding = UDim.new(0, 10),
+        Parent = window.notificationContainer
+    })
+    
+    return window
+end
 
-    local sectionLabel = Instance.new("TextLabel")
-    sectionLabel.Size = UDim2.new(1, 0, 0, 20)
-    sectionLabel.BackgroundTransparency = 1
-    sectionLabel.Text = sectionName
-    sectionLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-    sectionLabel.Parent = section
+-- Tab creation
+function ScriptHubUI:CreateTab(name)
+    local tab = {
+        name = name,
+        sections = {},
+        container = nil
+    }
+    
+    -- Tab button in sidebar
+    local tabButton = create("TextButton", {
+        Name = name,
+        Text = name,
+        Font = Enum.Font.Gotham,
+        TextColor3 = theme.text,
+        TextSize = 14,
+        BackgroundColor3 = theme.tabDefault,
+        Size = UDim2.new(1, -20, 0, 35),
+        Position = UDim2.new(0, 10, 0, 10 + (#self.tabs * 40)),
+        Parent = self.sidebar
+    })
+    
+    tabButton.MouseEnter:Connect(function()
+        if self.currentTab ~= tab then
+            tabButton.BackgroundColor3 = theme.elementHover
+        end
+    end)
+    
+    tabButton.MouseLeave:Connect(function()
+        if self.currentTab ~= tab then
+            tabButton.BackgroundColor3 = theme.tabDefault
+        end
+    end)
+    
+    tabButton.MouseButton1Click:Connect(function()
+        self:SelectTab(tab)
+    end)
+    
+    -- Content container for this tab
+    tab.container = create("Frame", {
+        Name = name .. "Content",
+        BackgroundTransparency = 1,
+        Size = UDim2.new(1, 0, 1, 0),
+        Visible = false,
+        Parent = self.content
+    })
+    
+    create("UIListLayout", {
+        Name = "SectionListLayout",
+        SortOrder = Enum.SortOrder.LayoutOrder,
+        Padding = UDim.new(0, 15),
+        Parent = tab.container
+    })
+    
+    create("UIPadding", {
+        Name = "TabContentPadding",
+        PaddingBottom = UDim.new(0, 15),
+        Parent = tab.container
+    })
+    
+    table.insert(self.tabs, tab)
+    
+    -- Select this tab if it's the first one
+    if #self.tabs == 1 then
+        self:SelectTab(tab)
+    end
+    
+    return tab
+end
+
+function ScriptHubUI:SelectTab(tab)
+    if self.currentTab then
+        self.currentTab.container.Visible = false
+        
+        -- Reset all tab buttons to default color
+        for _, t in ipairs(self.tabs) do
+            local btn = self.sidebar:FindFirstChild(t.name)
+            if btn then
+                btn.BackgroundColor3 = theme.tabDefault
+            end
+        end
+    end
+    
+    self.currentTab = tab
+    tab.container.Visible = true
+    
+    -- Highlight selected tab
+    local btn = self.sidebar:FindFirstChild(tab.name)
+    if btn then
+        btn.BackgroundColor3 = theme.tabSelected
+    end
+end
+
+-- Section creation
+function ScriptHubUI:CreateSection(tab, name)
+    local section = {
+        name = name,
+        elements = {},
+        container = nil
+    }
+    
+    -- Section container
+    section.container = create("Frame", {
+        Name = name,
+        BackgroundColor3 = theme.elementBackground,
+        BorderSizePixel = 0,
+        Size = UDim2.new(1, 0, 0, 0), -- Height will be auto-adjusted
+        Parent = tab.container
+    })
+    
+    create("UICorner", {
+        CornerRadius = UDim.new(0, 6),
+        Parent = section.container
+    })
+    
+    create("UIPadding", {
+        PaddingTop = UDim.new(0, 10),
+        PaddingBottom = UDim.new(0, 10),
+        PaddingLeft = UDim.new(0, 15),
+        PaddingRight = UDim.new(0, 15),
+        Parent = section.container
+    })
+    
+    -- Section title
+    create("TextLabel", {
+        Name = "Title",
+        Text = name,
+        Font = Enum.Font.GothamBold,
+        TextColor3 = theme.text,
+        TextSize = 16,
+        BackgroundTransparency = 1,
+        Size = UDim2.new(1, 0, 0, 25),
+        TextXAlignment = Enum.TextXAlignment.Left,
+        Parent = section.container
+    })
+    
+    -- Elements container
+    section.elementsContainer = create("Frame", {
+        Name = "Elements",
+        BackgroundTransparency = 1,
+        Position = UDim2.new(0, 0, 0, 25),
+        Size = UDim2.new(1, 0, 0, 0), -- Height will be auto-adjusted
+        Parent = section.container
+    })
+    
+    local listLayout = create("UIListLayout", {
+        Name = "ElementListLayout",
+        SortOrder = Enum.SortOrder.LayoutOrder,
+        Padding = UDim.new(0, 10),
+        Parent = section.elementsContainer
+    })
+    
+    -- Update section size when elements change
+    listLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        section.elementsContainer.Size = UDim2.new(1, 0, 0, listLayout.AbsoluteContentSize.Y)
+        section.container.Size = UDim2.new(1, 0, 0, 25 + listLayout.AbsoluteContentSize.Y + 20)
+    end)
+    
+    table.insert(tab.sections, section)
     return section
 end
 
--- Notifying the user
-function RbxScriptHub:Notify(content, message)
-    local notification = Instance.new("TextLabel")
-    notification.Size = UDim2.new(0, 200, 0, 50)
-    notification.Position = UDim2.new(0.5, -100, 0, 10)
-    notification.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-    notification.Text = message
-    notification.TextColor3 = Color3.fromRGB(255, 255, 255)
-    notification.Parent = content
-    wait(2)
-    notification:Destroy()
-end
-
--- Creating a Button
-function RbxScriptHub:CreateButton(section, buttonText, callback)
-    local button = Instance.new("TextButton")
-    button.Size = UDim2.new(0, 100, 0, 30)
-    button.BackgroundColor3 = Color3.fromRGB(0, 120, 255)
-    button.Text = buttonText
-    button.TextColor3 = Color3.fromRGB(255, 255, 255)
-    button.Parent = section
+-- UI Elements
+function ScriptHubUI:AddButton(section, options)
+    options = options or {}
+    local text = options.Text or "Button"
+    local callback = options.Callback or function() end
+    
+    local button = create("TextButton", {
+        Name = text,
+        Text = text,
+        Font = Enum.Font.Gotham,
+        TextColor3 = theme.text,
+        TextSize = 14,
+        BackgroundColor3 = theme.elementBackground,
+        BorderSizePixel = 0,
+        AutoButtonColor = false,
+        Size = UDim2.new(1, 0, 0, 35),
+        Parent = section.elementsContainer
+    })
+    
+    create("UICorner", {
+        CornerRadius = UDim.new(0, 4),
+        Parent = button
+    })
+    
+    button.MouseEnter:Connect(function()
+        button.BackgroundColor3 = theme.elementHover
+    end)
+    
+    button.MouseLeave:Connect(function()
+        button.BackgroundColor3 = theme.elementBackground
+    end)
+    
     button.MouseButton1Click:Connect(callback)
+    
     return button
 end
 
--- Creating a Checkbox toggle
-function RbxScriptHub:CreateCheckbox(section, label, defaultState, callback)
-    local checkbox = Instance.new("TextButton")
-    checkbox.Size = UDim2.new(0, 20, 0, 20)
-    checkbox.BackgroundColor3 = defaultState and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 0, 0)
-    checkbox.Text = ""
-    checkbox.Parent = section
-
-    local labelText = Instance.new("TextLabel")
-    labelText.Size = UDim2.new(0, 100, 0, 20)
-    labelText.Position = UDim2.new(0, 25, 0, 0)
-    labelText.BackgroundTransparency = 1
-    labelText.Text = label
-    labelText.TextColor3 = Color3.fromRGB(255, 255, 255)
-    labelText.Parent = section
-
-    checkbox.MouseButton1Click:Connect(function()
-        checkbox.BackgroundColor3 = checkbox.BackgroundColor3 == Color3.fromRGB(0, 255, 0) and Color3.fromRGB(255, 0, 0) or Color3.fromRGB(0, 255, 0)
-        callback(checkbox.BackgroundColor3 == Color3.fromRGB(0, 255, 0))
+function ScriptHubUI:AddToggle(section, options)
+    options = options or {}
+    local text = options.Text or "Toggle"
+    local default = options.Default or false
+    local callback = options.Callback or function() end
+    
+    local toggle = {
+        value = default
+    }
+    
+    local container = create("Frame", {
+        Name = text,
+        BackgroundTransparency = 1,
+        Size = UDim2.new(1, 0, 0, 25),
+        Parent = section.elementsContainer
+    })
+    
+    local label = create("TextLabel", {
+        Name = "Label",
+        Text = text,
+        Font = Enum.Font.Gotham,
+        TextColor3 = theme.text,
+        TextSize = 14,
+        BackgroundTransparency = 1,
+        Size = UDim2.new(1, -35, 1, 0),
+        TextXAlignment = Enum.TextXAlignment.Left,
+        Parent = container
+    })
+    
+    local toggleButton = create("TextButton", {
+        Name = "ToggleButton",
+        Text = "",
+        BackgroundColor3 = default and theme.accent or theme.elementBackground,
+        BorderSizePixel = 0,
+        Size = UDim2.new(0, 25, 0, 25),
+        Position = UDim2.new(1, -25, 0, 0),
+        Parent = container
+    })
+    
+    create("UICorner", {
+        CornerRadius = UDim.new(0, 4),
+        Parent = toggleButton
+    })
+    
+    toggleButton.MouseEnter:Connect(function()
+        if not toggle.value then
+            toggleButton.BackgroundColor3 = theme.elementHover
+        end
     end)
-    return checkbox
+    
+    toggleButton.MouseLeave:Connect(function()
+        if not toggle.value then
+            toggleButton.BackgroundColor3 = theme.elementBackground
+        end
+    end)
+    
+    toggleButton.MouseButton1Click:Connect(function()
+        toggle.value = not toggle.value
+        toggleButton.BackgroundColor3 = toggle.value and theme.accent or theme.elementBackground
+        callback(toggle.value)
+    end)
+    
+    return toggle
 end
 
--- Creating a Slider
-function RbxScriptHub:CreateSlider(section, min, max, default, callback)
-    local sliderFrame = Instance.new("Frame")
-    sliderFrame.Size = UDim2.new(1, -20, 0, 30)
-    sliderFrame.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-    sliderFrame.Parent = section
-
-    local slider = Instance.new("TextButton")
-    slider.Size = UDim2.new(1, 0, 0, 5)
-    slider.BackgroundColor3 = Color3.fromRGB(0, 120, 255)
-    slider.Position = UDim2.new(0, 0, 0, 10)
-    slider.Parent = sliderFrame
-
-    local value = default or min
-    slider.MouseButton1Down:Connect(function(x)
-        local relativeX = math.clamp((x.Position.X - slider.AbsolutePosition.X) / slider.AbsoluteSize.X, 0, 1)
-        value = math.floor(min + (max - min) * relativeX)
-        slider.Size = UDim2.new(relativeX, 0, 0, 5)
-        callback(value)
+function ScriptHubUI:AddSlider(section, options)
+    options = options or {}
+    local text = options.Text or "Slider"
+    local min = options.Min or 0
+    local max = options.Max or 100
+    local default = options.Default or 50
+    local callback = options.Callback or function() end
+    
+    local slider = {
+        value = default
+    }
+    
+    local container = create("Frame", {
+        Name = text,
+        BackgroundTransparency = 1,
+        Size = UDim2.new(1, 0, 0, 45),
+        Parent = section.elementsContainer
+    })
+    
+    local label = create("TextLabel", {
+        Name = "Label",
+        Text = text,
+        Font = Enum.Font.Gotham,
+        TextColor3 = theme.text,
+        TextSize = 14,
+        BackgroundTransparency = 1,
+        Size = UDim2.new(1, 0, 0, 20),
+        TextXAlignment = Enum.TextXAlignment.Left,
+        Parent = container
+    })
+    
+    local valueLabel = create("TextLabel", {
+        Name = "Value",
+        Text = tostring(default),
+        Font = Enum.Font.Gotham,
+        TextColor3 = theme.text,
+        TextSize = 14,
+        BackgroundTransparency = 1,
+        Size = UDim2.new(0, 40, 0, 20),
+        Position = UDim2.new(1, -40, 0, 0),
+        TextXAlignment = Enum.TextXAlignment.Right,
+        Parent = container
+    })
+    
+    local track = create("Frame", {
+        Name = "Track",
+        BackgroundColor3 = theme.elementBackground,
+        BorderSizePixel = 0,
+        Size = UDim2.new(1, 0, 0, 5),
+        Position = UDim2.new(0, 0, 0, 25),
+        Parent = container
+    })
+    
+    create("UICorner", {
+        CornerRadius = UDim.new(0, 3),
+        Parent = track
+    })
+    
+    local fill = create("Frame", {
+        Name = "Fill",
+        BackgroundColor3 = theme.accent,
+        BorderSizePixel = 0,
+        Size = UDim2.new((default - min) / (max - min), 0, 1, 0),
+        Parent = track
+    })
+    
+    create("UICorner", {
+        CornerRadius = UDim.new(0, 3),
+        Parent = fill
+    })
+    
+    local handle = create("Frame", {
+        Name = "Handle",
+        BackgroundColor3 = theme.text,
+        BorderSizePixel = 0,
+        Size = UDim2.new(0, 15, 0, 15),
+        Position = UDim2.new(fill.Size.X.Scale, -7.5, 0.5, -7.5),
+        Parent = track
+    })
+    
+    create("UICorner", {
+        CornerRadius = UDim.new(1, 0),
+        Parent = handle
+    })
+    
+    local dragging = false
+    
+    local function updateSlider(x)
+        local pos = math.clamp((x - track.AbsolutePosition.X) / track.AbsoluteSize.X, 0, 1)
+        local value = math.floor(min + (max - min) * pos)
+        
+        if value ~= slider.value then
+            slider.value = value
+            valueLabel.Text = tostring(value)
+            fill.Size = UDim2.new(pos, 0, 1, 0)
+            handle.Position = UDim2.new(pos, -7.5, 0.5, -7.5)
+            callback(value)
+        end
+    end
+    
+    handle.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = true
+        end
     end)
+    
+    handle.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = false
+        end
+    end)
+    
+    track.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = true
+            updateSlider(input.Position.X)
+        end
+    end)
+    
+    game:GetService("UserInputService").InputChanged:Connect(function(input)
+        if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+            updateSlider(input.Position.X)
+        end
+    end)
+    
     return slider
 end
 
--- Creating a Label
-function RbxScriptHub:CreateLabel(section, text)
-    local label = Instance.new("TextLabel")
-    label.Size = UDim2.new(1, -20, 0, 20)
-    label.BackgroundTransparency = 1
-    label.Text = text
-    label.TextColor3 = Color3.fromRGB(255, 255, 255)
-    label.Parent = section
+function ScriptHubUI:AddLabel(section, text)
+    local label = createTextLabel({
+        Text = text,
+        Parent = section.elementsContainer
+    })
     return label
 end
 
--- Creating a Paragraph
-function RbxScriptHub:CreateParagraph(section, text)
-    local paragraph = Instance.new("TextLabel")
-    paragraph.Size = UDim2.new(1, -20, 0, 60)
-    paragraph.BackgroundTransparency = 1
-    paragraph.Text = text
-    paragraph.TextWrapped = true
-    paragraph.TextColor3 = Color3.fromRGB(255, 255, 255)
-    paragraph.Parent = section
+function ScriptHubUI:AddParagraph(section, text)
+    local paragraph = create("TextLabel", {
+        Name = "Paragraph",
+        Text = text,
+        Font = Enum.Font.Gotham,
+        TextColor3 = theme.text,
+        TextSize = 14,
+        BackgroundTransparency = 1,
+        TextWrapped = true,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        Size = UDim2.new(1, 0, 0, 0), -- Height will auto-adjust
+        Parent = section.elementsContainer
+    })
+    
+    -- Auto-adjust height based on text
+    local function updateSize()
+        local textHeight = math.ceil(paragraph.TextBounds.Y)
+        paragraph.Size = UDim2.new(1, 0, 0, textHeight)
+    end
+    
+    paragraph:GetPropertyChangedSignal("Text"):Connect(updateSize)
+    updateSize()
+    
     return paragraph
 end
 
--- Creating an Adaptive Input
-function RbxScriptHub:CreateInput(section, placeholder, callback)
-    local input = Instance.new("TextBox")
-    input.Size = UDim2.new(0, 150, 0, 30)
-    input.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-    input.Text = placeholder
-    input.TextColor3 = Color3.fromRGB(255, 255, 255)
-    input.PlaceholderColor3 = Color3.fromRGB(150, 150, 150)
-    input.Parent = section
-    input.Focused:Connect(function()
-        if input.Text == placeholder then input.Text = "" end
+function ScriptHubUI:AddInput(section, options)
+    options = options or {}
+    local text = options.Text or "Input"
+    local placeholder = options.Placeholder or "Enter text..."
+    local callback = options.Callback or function() end
+    
+    local container = create("Frame", {
+        Name = text,
+        BackgroundTransparency = 1,
+        Size = UDim2.new(1, 0, 0, 50),
+        Parent = section.elementsContainer
+    })
+    
+    local label = create("TextLabel", {
+        Name = "Label",
+        Text = text,
+        Font = Enum.Font.Gotham,
+        TextColor3 = theme.text,
+        TextSize = 14,
+        BackgroundTransparency = 1,
+        Size = UDim2.new(1, 0, 0, 20),
+        TextXAlignment = Enum.TextXAlignment.Left,
+        Parent = container
+    })
+    
+    local inputBox = create("TextBox", {
+        Name = "Input",
+        Text = "",
+        PlaceholderText = placeholder,
+        Font = Enum.Font.Gotham,
+        TextColor3 = theme.text,
+        TextSize = 14,
+        BackgroundColor3 = theme.elementBackground,
+        BorderSizePixel = 0,
+        Size = UDim2.new(1, 0, 0, 25),
+        Position = UDim2.new(0, 0, 0, 25),
+        TextXAlignment = Enum.TextXAlignment.Left,
+        Parent = container
+    })
+    
+    create("UICorner", {
+        CornerRadius = UDim.new(0, 4),
+        Parent = inputBox
+    })
+    
+    create("UIPadding", {
+        PaddingLeft = UDim.new(0, 8),
+        PaddingRight = UDim.new(0, 8),
+        Parent = inputBox
+    })
+    
+    inputBox.FocusLost:Connect(function(enterPressed)
+        if enterPressed then
+            callback(inputBox.Text)
+        end
     end)
-    input.FocusLost:Connect(function(enterPressed)
-        if enterPressed then callback(input.Text) end
-    end)
-    return input
+    
+    return inputBox
 end
 
--- Creating a Keybind
-function RbxScriptHub:CreateKeybind(section, defaultKey, callback)
-    local keybind = Instance.new("TextButton")
-    keybind.Size = UDim2.new(0, 100, 0, 30)
-    keybind.BackgroundColor3 = Color3.fromRGB(0, 120, 255)
-    keybind.Text = defaultKey
-    keybind.TextColor3 = Color3.fromRGB(255, 255, 255)
-    keybind.Parent = section
-
-    keybind.MouseButton1Click:Connect(function()
-        keybind.Text = "Press Key..."
-        local userInputService = game:GetService("UserInputService")
-        local connection
-        connection = userInputService.InputBegan:Connect(function(input)
-            if input.KeyCode ~= Enum.KeyCode.Unknown then
-                keybind.Text = input.KeyCode.Name
-                callback(input.KeyCode.Name)
-                connection:Disconnect()
-            end
-        end)
+function ScriptHubUI:AddKeybind(section, options)
+    options = options or {}
+    local text = options.Text or "Keybind"
+    local default = options.Default or Enum.KeyCode.F
+    local callback = options.Callback or function() end
+    
+    local keybind = {
+        value = default
+    }
+    
+    local container = create("Frame", {
+        Name = text,
+        BackgroundTransparency = 1,
+        Size = UDim2.new(1, 0, 0, 25),
+        Parent = section.elementsContainer
+    })
+    
+    local label = create("TextLabel", {
+        Name = "Label",
+        Text = text,
+        Font = Enum.Font.Gotham,
+        TextColor3 = theme.text,
+        TextSize = 14,
+        BackgroundTransparency = 1,
+        Size = UDim2.new(1, -80, 1, 0),
+        TextXAlignment = Enum.TextXAlignment.Left,
+        Parent = container
+    })
+    
+    local keyButton = create("TextButton", {
+        Name = "KeyButton",
+        Text = default.Name,
+        Font = Enum.Font.Gotham,
+        TextColor3 = theme.text,
+        TextSize = 14,
+        BackgroundColor3 = theme.elementBackground,
+        BorderSizePixel = 0,
+        Size = UDim2.new(0, 70, 0, 25),
+        Position = UDim2.new(1, -70, 0, 0),
+        Parent = container
+    })
+    
+    create("UICorner", {
+        CornerRadius = UDim.new(0, 4),
+        Parent = keyButton
+    })
+    
+    local listening = false
+    
+    keyButton.MouseButton1Click:Connect(function()
+        listening = true
+        keyButton.Text = "..."
+        keyButton.BackgroundColor3 = theme.accent
     end)
+    
+    game:GetService("UserInputService").InputBegan:Connect(function(input)
+        if listening and input.UserInputType == Enum.UserInputType.Keyboard then
+            listening = false
+            keybind.value = input.KeyCode
+            keyButton.Text = input.KeyCode.Name
+            keyButton.BackgroundColor3 = theme.elementBackground
+            callback(input.KeyCode)
+        end
+    end)
+    
     return keybind
 end
 
--- Creating a Dropdown menu
-function RbxScriptHub:CreateDropdown(section, options, callback)
-    local dropdown = Instance.new("TextButton")
-    dropdown.Size = UDim2.new(0, 150, 0, 30)
-    dropdown.BackgroundColor3 = Color3.fromRGB(0, 120, 255)
-    dropdown.Text = "Select..."
-    dropdown.TextColor3 = Color3.fromRGB(255, 255, 255)
-    dropdown.Parent = section
-
-    local dropdownList = Instance.new("Frame")
-    dropdownList.Size = UDim2.new(1, 0, 0, #options * 30)
-    dropdownList.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-    dropdownList.Visible = false
-    dropdownList.Parent = section
-
-    for i, option in pairs(options) do
-        local optionButton = Instance.new("TextButton")
-        optionButton.Size = UDim2.new(1, 0, 0, 30)
-        optionButton.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-        optionButton.Text = option
-        optionButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-        optionButton.Position = UDim2.new(0, 0, 0, (i - 1) * 30)
-        optionButton.Parent = dropdownList
+function ScriptHubUI:AddDropdown(section, options)
+    options = options or {}
+    local text = options.Text or "Dropdown"
+    local optionsList = options.Options or {"Option 1", "Option 2"}
+    local default = options.Default or optionsList[1]
+    local callback = options.Callback or function() end
+    
+    local dropdown = {
+        value = default,
+        open = false
+    }
+    
+    local container = create("Frame", {
+        Name = text,
+        BackgroundTransparency = 1,
+        Size = UDim2.new(1, 0, 0, 25),
+        Parent = section.elementsContainer
+    })
+    
+    local label = create("TextLabel", {
+        Name = "Label",
+        Text = text,
+        Font = Enum.Font.Gotham,
+        TextColor3 = theme.text,
+        TextSize = 14,
+        BackgroundTransparency = 1,
+        Size = UDim2.new(1, -30, 1, 0),
+        TextXAlignment = Enum.TextXAlignment.Left,
+        Parent = container
+    })
+    
+    local dropdownButton = create("TextButton", {
+        Name = "DropdownButton",
+        Text = default,
+        Font = Enum.Font.Gotham,
+        TextColor3 = theme.text,
+        TextSize = 14,
+        BackgroundColor3 = theme.elementBackground,
+        BorderSizePixel = 0,
+        Size = UDim2.new(0, 25, 0, 25),
+        Position = UDim2.new(1, -25, 0, 0),
+        Parent = container
+    })
+    
+    create("UICorner", {
+        CornerRadius = UDim.new(0, 4),
+        Parent = dropdownButton
+    })
+    
+    local dropdownList = create("Frame", {
+        Name = "DropdownList",
+        BackgroundColor3 = theme.elementBackground,
+        BorderSizePixel = 0,
+        Position = UDim2.new(0, 0, 1, 5),
+        Size = UDim2.new(1, 0, 0, 0), -- Height will be set when opened
+        Visible = false,
+        Parent = container
+    })
+    
+    create("UICorner", {
+        CornerRadius = UDim.new(0, 4),
+        Parent = dropdownList
+    })
+    
+    create("UIListLayout", {
+        SortOrder = Enum.SortOrder.LayoutOrder,
+        Parent = dropdownList
+    })
+    
+    create("UIPadding", {
+        PaddingTop = UDim.new(0, 5),
+        PaddingBottom = UDim.new(0, 5),
+        Parent = dropdownList
+    })
+    
+    -- Create option buttons
+    local function createOption(option)
+        local optionButton = create("TextButton", {
+            Name = option,
+            Text = option,
+            Font = Enum.Font.Gotham,
+            TextColor3 = theme.text,
+            TextSize = 14,
+            BackgroundColor3 = theme.elementBackground,
+            BorderSizePixel = 0,
+            Size = UDim2.new(1, -10, 0, 25),
+            LayoutOrder = #dropdownList:GetChildren(),
+            Parent = dropdownList
+        })
+        
+        create("UICorner", {
+            CornerRadius = UDim.new(0, 4),
+            Parent = optionButton
+        })
+        
+        optionButton.MouseEnter:Connect(function()
+            optionButton.BackgroundColor3 = theme.elementHover
+        end)
+        
+        optionButton.MouseLeave:Connect(function()
+            optionButton.BackgroundColor3 = theme.elementBackground
+        end)
+        
         optionButton.MouseButton1Click:Connect(function()
-            dropdown.Text = option
+            dropdown.value = option
+            dropdownButton.Text = option
+            dropdown.open = false
             dropdownList.Visible = false
             callback(option)
         end)
     end
-
-    dropdown.MouseButton1Click:Connect(function()
-        dropdownList.Visible = not dropdownList.Visible
+    
+    for _, option in ipairs(optionsList) do
+        createOption(option)
+    end
+    
+    dropdownButton.MouseButton1Click:Connect(function()
+        dropdown.open = not dropdown.open
+        dropdownList.Visible = dropdown.open
+        
+        if dropdown.open then
+            dropdownList.Size = UDim2.new(1, 0, 0, #optionsList * 30 + 10)
+        end
     end)
+    
     return dropdown
 end
 
-return RbxScriptHub
+-- Notification system
+function ScriptHubUI:Notify(title, message, duration, notificationType)
+    duration = duration or 5
+    notificationType = notificationType or "Info"
+    
+    local color
+    if notificationType == "Success" then
+        color = theme.success
+    elseif notificationType == "Warning" then
+        color = theme.warning
+    elseif notificationType == "Error" then
+        color = theme.error
+    else
+        color = theme.accent
+    end
+    
+    local notification = create("Frame", {
+        Name = "Notification",
+        BackgroundColor3 = color,
+        BorderSizePixel = 0,
+        Size = UDim2.new(1, 0, 0, 0), -- Height will auto-adjust
+        Parent = self.notificationContainer
+    })
+    
+    create("UICorner", {
+        CornerRadius = UDim.new(0, 6),
+        Parent = notification
+    })
+    
+    create("UIPadding", {
+        PaddingAll = UDim.new(0, 10),
+        Parent = notification
+    })
+    
+    local titleLabel = create("TextLabel", {
+        Name = "Title",
+        Text = title,
+        Font = Enum.Font.GothamBold,
+        TextColor3 = theme.text,
+        TextSize = 16,
+        BackgroundTransparency = 1,
+        Size = UDim2.new(1, 0, 0, 25),
+        TextXAlignment = Enum.TextXAlignment.Left,
+        Parent = notification
+    })
+    
+    local messageLabel = create("TextLabel", {
+        Name = "Message",
+        Text = message,
+        Font = Enum.Font.Gotham,
+        TextColor3 = theme.text,
+        TextSize = 14,
+        TextWrapped = true,
+        BackgroundTransparency = 1,
+        Size = UDim2.new(1, 0, 0, 0), -- Height will auto-adjust
+        Position = UDim2.new(0, 0, 0, 25),
+        TextXAlignment = Enum.TextXAlignment.Left,
+        Parent = notification
+    })
+    
+    -- Auto-adjust height
+    local function updateSize()
+        local textHeight = math.ceil(messageLabel.TextBounds.Y)
+        messageLabel.Size = UDim2.new(1, 0, 0, textHeight)
+        notification.Size = UDim2.new(1, 0, 0, 35 + textHeight)
+    end
+    
+    messageLabel:GetPropertyChangedSignal("Text"):Connect(updateSize)
+    updateSize()
+    
+    -- Auto-remove after duration
+    delay(duration, function()
+        if notification and notification.Parent then
+            notification:Destroy()
+        end
+    end)
+    
+    return notification
+end
+
+return ScriptHubUI

@@ -1,0 +1,259 @@
+-- RbxScriptHub UI Library
+local RbxScriptHub = {}
+RbxScriptHub.__index = RbxScriptHub
+
+-- Creating a Window
+function RbxScriptHub:CreateWindow(title)
+    local screenGui = Instance.new("ScreenGui")
+    local mainFrame = Instance.new("Frame")
+    mainFrame.Size = UDim2.new(0, 400, 0, 300)
+    mainFrame.Position = UDim2.new(0.5, -200, 0.5, -150)
+    mainFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    mainFrame.BorderSizePixel = 2
+    mainFrame.BorderColor3 = Color3.fromRGB(255, 255, 255)
+
+    local titleBar = Instance.new("TextLabel")
+    titleBar.Size = UDim2.new(1, 0, 0, 30)
+    titleBar.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    titleBar.Text = title
+    titleBar.TextColor3 = Color3.fromRGB(0, 191, 255)
+    titleBar.Parent = mainFrame
+
+    local closeButton = Instance.new("TextButton")
+    closeButton.Size = UDim2.new(0, 20, 0, 20)
+    closeButton.Position = UDim2.new(1, -25, 0, 5)
+    closeButton.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+    closeButton.Text = "X"
+    closeButton.Parent = titleBar
+
+    local minButton = Instance.new("TextButton")
+    minButton.Size = UDim2.new(0, 20, 0, 20)
+    minButton.Position = UDim2.new(1, -50, 0, 5)
+    minButton.BackgroundColor3 = Color3.fromRGB(255, 255, 0)
+    minButton.Text = "_"
+    minButton.Parent = titleBar
+
+    local navTab = Instance.new("Frame")
+    navTab.Size = UDim2.new(0, 100, 1, -30)
+    navTab.Position = UDim2.new(0, 0, 0, 30)
+    navTab.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    navTab.Parent = mainFrame
+
+    local contentFrame = Instance.new("Frame")
+    contentFrame.Size = UDim2.new(1, -100, 1, -30)
+    contentFrame.Position = UDim2.new(0, 100, 0, 30)
+    contentFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    contentFrame.Parent = mainFrame
+
+    local scrollBar = Instance.new("ScrollingFrame")
+    scrollBar.Size = UDim2.new(1, -20, 1, -10)
+    scrollBar.Position = UDim2.new(0, 0, 0, 5)
+    scrollBar.CanvasSize = UDim2.new(0, 0, 2, 0)
+    scrollBar.BackgroundTransparency = 1
+    scrollBar.Parent = contentFrame
+
+    screenGui.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
+    return {MainFrame = mainFrame, NavTab = navTab, Content = scrollBar}
+end
+
+-- Creating a Tab
+function RbxScriptHub:CreateTab(window, tabName)
+    local tabButton = Instance.new("TextButton")
+    tabButton.Size = UDim2.new(1, 0, 0, 30)
+    tabButton.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    tabButton.Text = tabName
+    tabButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    tabButton.Parent = window.NavTab
+    return tabButton
+end
+
+-- Creating a Section
+function RbxScriptHub:CreateSection(content, sectionName)
+    local section = Instance.new("Frame")
+    section.Size = UDim2.new(1, -20, 0, 50)
+    section.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+    section.BorderSizePixel = 0
+    section.Parent = content
+
+    local sectionLabel = Instance.new("TextLabel")
+    sectionLabel.Size = UDim2.new(1, 0, 0, 20)
+    sectionLabel.BackgroundTransparency = 1
+    sectionLabel.Text = sectionName
+    sectionLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    sectionLabel.Parent = section
+    return section
+end
+
+-- Notifying the user
+function RbxScriptHub:Notify(content, message)
+    local notification = Instance.new("TextLabel")
+    notification.Size = UDim2.new(0, 200, 0, 50)
+    notification.Position = UDim2.new(0.5, -100, 0, 10)
+    notification.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    notification.Text = message
+    notification.TextColor3 = Color3.fromRGB(255, 255, 255)
+    notification.Parent = content
+    wait(2)
+    notification:Destroy()
+end
+
+-- Creating a Button
+function RbxScriptHub:CreateButton(section, buttonText, callback)
+    local button = Instance.new("TextButton")
+    button.Size = UDim2.new(0, 100, 0, 30)
+    button.BackgroundColor3 = Color3.fromRGB(0, 120, 255)
+    button.Text = buttonText
+    button.TextColor3 = Color3.fromRGB(255, 255, 255)
+    button.Parent = section
+    button.MouseButton1Click:Connect(callback)
+    return button
+end
+
+-- Creating a Checkbox toggle
+function RbxScriptHub:CreateCheckbox(section, label, defaultState, callback)
+    local checkbox = Instance.new("TextButton")
+    checkbox.Size = UDim2.new(0, 20, 0, 20)
+    checkbox.BackgroundColor3 = defaultState and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 0, 0)
+    checkbox.Text = ""
+    checkbox.Parent = section
+
+    local labelText = Instance.new("TextLabel")
+    labelText.Size = UDim2.new(0, 100, 0, 20)
+    labelText.Position = UDim2.new(0, 25, 0, 0)
+    labelText.BackgroundTransparency = 1
+    labelText.Text = label
+    labelText.TextColor3 = Color3.fromRGB(255, 255, 255)
+    labelText.Parent = section
+
+    checkbox.MouseButton1Click:Connect(function()
+        checkbox.BackgroundColor3 = checkbox.BackgroundColor3 == Color3.fromRGB(0, 255, 0) and Color3.fromRGB(255, 0, 0) or Color3.fromRGB(0, 255, 0)
+        callback(checkbox.BackgroundColor3 == Color3.fromRGB(0, 255, 0))
+    end)
+    return checkbox
+end
+
+-- Creating a Slider
+function RbxScriptHub:CreateSlider(section, min, max, default, callback)
+    local sliderFrame = Instance.new("Frame")
+    sliderFrame.Size = UDim2.new(1, -20, 0, 30)
+    sliderFrame.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    sliderFrame.Parent = section
+
+    local slider = Instance.new("TextButton")
+    slider.Size = UDim2.new(1, 0, 0, 5)
+    slider.BackgroundColor3 = Color3.fromRGB(0, 120, 255)
+    slider.Position = UDim2.new(0, 0, 0, 10)
+    slider.Parent = sliderFrame
+
+    local value = default or min
+    slider.MouseButton1Down:Connect(function(x)
+        local relativeX = math.clamp((x.Position.X - slider.AbsolutePosition.X) / slider.AbsoluteSize.X, 0, 1)
+        value = math.floor(min + (max - min) * relativeX)
+        slider.Size = UDim2.new(relativeX, 0, 0, 5)
+        callback(value)
+    end)
+    return slider
+end
+
+-- Creating a Label
+function RbxScriptHub:CreateLabel(section, text)
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(1, -20, 0, 20)
+    label.BackgroundTransparency = 1
+    label.Text = text
+    label.TextColor3 = Color3.fromRGB(255, 255, 255)
+    label.Parent = section
+    return label
+end
+
+-- Creating a Paragraph
+function RbxScriptHub:CreateParagraph(section, text)
+    local paragraph = Instance.new("TextLabel")
+    paragraph.Size = UDim2.new(1, -20, 0, 60)
+    paragraph.BackgroundTransparency = 1
+    paragraph.Text = text
+    paragraph.TextWrapped = true
+    paragraph.TextColor3 = Color3.fromRGB(255, 255, 255)
+    paragraph.Parent = section
+    return paragraph
+end
+
+-- Creating an Adaptive Input
+function RbxScriptHub:CreateInput(section, placeholder, callback)
+    local input = Instance.new("TextBox")
+    input.Size = UDim2.new(0, 150, 0, 30)
+    input.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    input.Text = placeholder
+    input.TextColor3 = Color3.fromRGB(255, 255, 255)
+    input.PlaceholderColor3 = Color3.fromRGB(150, 150, 150)
+    input.Parent = section
+    input.Focused:Connect(function()
+        if input.Text == placeholder then input.Text = "" end
+    end)
+    input.FocusLost:Connect(function(enterPressed)
+        if enterPressed then callback(input.Text) end
+    end)
+    return input
+end
+
+-- Creating a Keybind
+function RbxScriptHub:CreateKeybind(section, defaultKey, callback)
+    local keybind = Instance.new("TextButton")
+    keybind.Size = UDim2.new(0, 100, 0, 30)
+    keybind.BackgroundColor3 = Color3.fromRGB(0, 120, 255)
+    keybind.Text = defaultKey
+    keybind.TextColor3 = Color3.fromRGB(255, 255, 255)
+    keybind.Parent = section
+
+    keybind.MouseButton1Click:Connect(function()
+        keybind.Text = "Press Key..."
+        local userInputService = game:GetService("UserInputService")
+        local connection
+        connection = userInputService.InputBegan:Connect(function(input)
+            if input.KeyCode ~= Enum.KeyCode.Unknown then
+                keybind.Text = input.KeyCode.Name
+                callback(input.KeyCode.Name)
+                connection:Disconnect()
+            end
+        end)
+    end)
+    return keybind
+end
+
+-- Creating a Dropdown menu
+function RbxScriptHub:CreateDropdown(section, options, callback)
+    local dropdown = Instance.new("TextButton")
+    dropdown.Size = UDim2.new(0, 150, 0, 30)
+    dropdown.BackgroundColor3 = Color3.fromRGB(0, 120, 255)
+    dropdown.Text = "Select..."
+    dropdown.TextColor3 = Color3.fromRGB(255, 255, 255)
+    dropdown.Parent = section
+
+    local dropdownList = Instance.new("Frame")
+    dropdownList.Size = UDim2.new(1, 0, 0, #options * 30)
+    dropdownList.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+    dropdownList.Visible = false
+    dropdownList.Parent = section
+
+    for i, option in pairs(options) do
+        local optionButton = Instance.new("TextButton")
+        optionButton.Size = UDim2.new(1, 0, 0, 30)
+        optionButton.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+        optionButton.Text = option
+        optionButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+        optionButton.Position = UDim2.new(0, 0, 0, (i - 1) * 30)
+        optionButton.Parent = dropdownList
+        optionButton.MouseButton1Click:Connect(function()
+            dropdown.Text = option
+            dropdownList.Visible = false
+            callback(option)
+        end)
+    end
+
+    dropdown.MouseButton1Click:Connect(function()
+        dropdownList.Visible = not dropdownList.Visible
+    end)
+    return dropdown
+end
+
+return RbxScriptHub
